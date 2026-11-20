@@ -34,7 +34,7 @@ const navGroups = [
       { path: '/aiops', label: 'AIOps Engine', icon: BrainCircuit },
       { path: '/incidents', label: 'Incidents', icon: AlertOctagon },
       { path: '/recommendations', label: 'AI Remediation', icon: Sparkles },
-      { path: '/egress-proof', label: 'Zero-Trust Egress', icon: FileCheck2, highlight: true }
+      { path: '/egress-proof', label: 'Zero-Trust Egress', icon: FileCheck2, highlight: true },\n      { path: '/security-center', label: 'Security Center', icon: ShieldCheck }
     ]
   },
   {
