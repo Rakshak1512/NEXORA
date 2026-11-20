@@ -3,6 +3,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
+from auth_helpers import login_as_platform_admin
 
 client = TestClient(app)
 
@@ -19,12 +20,7 @@ def test_full_system_lifecycle_e2e():
     8. Check Performance Targets & Audit Logs
     """
     # 1. Login
-    login_res = client.post("/api/auth/login", json={
-        "email": "admin@cynera.io",
-        "password": "Cynera2026!Secure"
-    })
-    assert login_res.status_code == 200
-    token = login_res.json()["access_token"]
+    token = login_as_platform_admin(client)
     auth_headers = {"Authorization": f"Bearer {token}"}
 
     # 2. Collector Heartbeat
