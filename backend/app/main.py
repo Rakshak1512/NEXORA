@@ -20,6 +20,7 @@ from .websocket.manager import ws_manager
 # API Routers
 from .api.auth import router as auth_router
 from .api.admin import router as admin_router
+from .api.admin import router as admin_router
 from .api.collectors import router as collectors_router
 from .api.telemetry import router as telemetry_router
 from .api.metrics import router as metrics_router
@@ -584,6 +585,7 @@ async def cynera_security_rate_limit_middleware(request: Request, call_next):
 
 # Register Routers
 app.include_router(auth_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 app.include_router(collectors_router, prefix="/api")
 app.include_router(telemetry_router, prefix="/api")
 app.include_router(metrics_router, prefix="/api")
