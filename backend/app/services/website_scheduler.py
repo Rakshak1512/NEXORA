@@ -4,7 +4,7 @@ import logging
 import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
-from ..database import SessionLocal
+from .. import database as db_module
 from ..models.models import (
     MonitoredWebsite, WebsiteCheckResult, Incident, Alert,
     Notification, utc_now
@@ -45,9 +45,9 @@ class WebsiteMonitoringScheduler:
 
     async def run_due_checks(self):
         """Identifies and checks all due websites across all active organizations."""
-        if not SessionLocal:
+        if not db_module.SessionLocal:
             return
-        db = SessionLocal()
+        db = db_module.SessionLocal()
         try:
             now = utc_now()
             websites = db.query(MonitoredWebsite).filter(
@@ -75,10 +75,12 @@ class WebsiteMonitoringScheduler:
 
     async def check_single_website(self, website_id: str):
         """Executes a check on a single website, recording metrics and handling failure/recovery confirmation."""
-        db = SessionLocal()
+        if not db_module.SessionLocal:
+            return
+        db = db_module.SessionLocal()
         try:
             site = db.query(MonitoredWebsite).filter(MonitoredWebsite.id == website_id).first()
-            if not site or not site.is_active:
+            if not site or not site.is_active or not site.is_verified:
                 return
 
             try:
