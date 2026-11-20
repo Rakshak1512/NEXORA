@@ -1,0 +1,60 @@
+# ====================================================================
+# CICADA OBSERVE: .gitignore
+# Strictly excludes all private credentials, runtime databases,
+# dependencies, build outputs, and logs.
+# ====================================================================
+
+# Environment files containing actual secrets
+.env
+.env.*
+.env.local
+!.env.example
+
+# Local SQLite databases & queues
+*.db
+*.sqlite
+*.sqlite3
+cicada_saas.db
+collector/data/local_buffer.db
+collector/data/*.db
+backend/cicada_saas.db
+
+# Dependencies
+node_modules/
+backend/venv/
+backend/.venv/
+collector/venv/
+collector/.venv/
+venv/
+.venv/
+ENV/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+*.egg-info/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Testing & coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Runtime logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
