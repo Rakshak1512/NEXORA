@@ -21,6 +21,9 @@ from app.database import Base, get_db
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
     test_db_file = os.path.join(backend_root, "test_cynera_runner.db")
+    # Always start from a clean disposable test database; stale files can preserve old demo roles/data.
+    if os.path.exists(test_db_file):
+        os.remove(test_db_file)
     test_db_url = f"sqlite:///{test_db_file}"
     test_engine = create_engine(test_db_url, connect_args={"check_same_thread": False})
 
