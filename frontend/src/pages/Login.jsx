@@ -5,12 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 
 const Login = () => {
-  const [email, setEmail] = useState('admin@cynera.io');
-  const [password, setPassword] = useState('Cynera2026!Secure');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [accountType, setAccountType] = useState('owner');
   const [require2fa, setRequire2fa] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -22,19 +23,16 @@ const Login = () => {
       if (res && res.requireOtp) {
         navigate(`/verify-otp?email=${encodeURIComponent(email)}&purpose=login`);
       } else {
+        const isAdmin = res?.user?.role === 'Super Administrator';
+        if (accountType === 'admin' && !isAdmin) { logout(); throw new Error('This account does not have platform administrator access.'); }
+        if (accountType === 'owner' && isAdmin) { logout(); throw new Error('Choose Platform Administrator sign-in for this account.'); }
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Authentication failed. Please verify credentials.');
+      setError(err.response?.data?.detail || err.message || 'Authentication failed. Please verify credentials.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickFill = (demoEmail, demoPw) => {
-    setEmail(demoEmail);
-    setPassword(demoPw);
-    setError('');
   };
 
   return (
@@ -61,6 +59,10 @@ const Login = () => {
           </div>
         )}
 
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          <button type="button" onClick={() => setAccountType('owner')} className={`rounded-lg border px-3 py-2.5 text-xs font-semibold ${accountType === 'owner' ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300' : 'border-[#1A2740] text-slate-400'}`}>Workspace Account</button>
+          <button type="button" onClick={() => setAccountType('admin')} className={`rounded-lg border px-3 py-2.5 text-xs font-semibold ${accountType === 'admin' ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300' : 'border-[#1A2740] text-slate-400'}`}>Platform Admin</button>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
@@ -133,31 +135,6 @@ const Login = () => {
             )}
           </Button>
         </form>
-
-        {/* Demo Fast Login Pills */}
-        <div className="mt-6 pt-5 border-t border-[#1A2740]">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center mb-2.5">
-            Instant Demo Profiles
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickFill('admin@cynera.io', 'Cynera2026!Secure')}
-              className="p-2 rounded-lg bg-[#0B1322] border border-[#1A2740] hover:border-cyan-500/40 text-[11px] text-left transition group"
-            >
-              <div className="font-semibold text-slate-200 group-hover:text-cyan-300">Alex Vance</div>
-              <div className="text-[10px] text-slate-500 truncate">Super Admin</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickFill('operator@cynera.io', 'Cynera2026!Secure')}
-              className="p-2 rounded-lg bg-[#0B1322] border border-[#1A2740] hover:border-cyan-500/40 text-[11px] text-left transition group"
-            >
-              <div className="font-semibold text-slate-200 group-hover:text-cyan-300">Sarah Chen</div>
-              <div className="text-[10px] text-slate-500 truncate">AIOps Operator</div>
-            </button>
-          </div>
-        </div>
 
         <div className="mt-6 text-center text-xs text-slate-400">
           Need a workspace for your company?{' '}
