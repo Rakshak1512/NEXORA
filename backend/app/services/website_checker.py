@@ -257,14 +257,14 @@ async def verify_website_ownership(
             if response.status_code != 200:
                 return False, f"Verification failed: target returned HTTP {response.status_code}."
             tag_pattern = (
-                r"""<meta\\b[^>]*\\bname\\s*=\\s*["'](?:cynera-verification|cynera-site-verification)["'][^>]*\\bcontent\\s*=\\s*["']"""
+                r"""<meta\b[^>]*\bname\s*=\s*["'](?:cynera-verification|cynera-site-verification)["'][^>]*\bcontent\s*=\s*["']"""
                 + re.escape(expected_token)
                 + r"""["']"""
             )
             tag_pattern_alt = (
-                r"""<meta\\b[^>]*\\bcontent\\s*=\\s*["']"""
+                r"""<meta\b[^>]*\bcontent\s*=\s*["']"""
                 + re.escape(expected_token)
-                + r"""["'][^>]*\\bname\\s*=\\s*["'](?:cynera-verification|cynera-site-verification)["']"""
+                + r"""["'][^>]*\bname\s*=\s*["'](?:cynera-verification|cynera-site-verification)["']"""
             )
             tag = re.compile(tag_pattern + "|" + tag_pattern_alt, re.IGNORECASE)
             return (True, "Ownership verified via HTML meta tag.") if tag.search(response.text) else (False, "Expected ownership meta tag was not detected.")
