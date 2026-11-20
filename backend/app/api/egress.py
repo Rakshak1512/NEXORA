@@ -3,7 +3,8 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models.models import EgressMetadata
+from ..models.models import EgressMetadata, Collector, Profile
+from ..auth.deps import get_current_user
 from ..schemas.schemas import EgressProofPayload
 from ..auth.collector_auth import verify_collector_credentials
 
@@ -20,6 +21,9 @@ def record_egress_proof(
     Records the cryptographic proof of metadata escaping the local boundary.
     Guarantees no raw secrets are accepted in this payload.
     """
+    collector = db.query(Collector).filter(Collector.id == collector_id).first()
+    if payload.collector_id != collector_id or not collector or payload.tenant_id != collector.tenant_id:
+        raise HTTPException(status_code=403, detail="Egress identity does not match authenticated collector and tenant.")
     now_dt = datetime.datetime.now(datetime.timezone.utc)
 
     # Idempotent check
@@ -42,7 +46,7 @@ def record_egress_proof(
         outgoing_payload_json=json.dumps(payload.outgoing_payload_json),
         destination_endpoint=payload.destination_endpoint,
         transmission_status="DELIVERED",
-        latency_transit_ms=payload.latency_transit_ms or 12.0,
+        latency_transit_ms=payload.latency_transit_ms if payload.latency_transit_ms is not None else 0.0,
         sent_at=now_dt,
         delivered_at=now_dt
     )
@@ -57,8 +61,8 @@ def record_egress_proof(
     }
 
 @router.get("/records")
-def list_egress_records(limit: int = 50, db: Session = Depends(get_db)):
-    records = db.query(EgressMetadata).order_by(EgressMetadata.delivered_at.desc()).limit(limit).all()
+def list_egress_records(limit: int = 50, current_user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+    limit = max(1, min(limit, 100))\n    records = db.query(EgressMetadata).filter(EgressMetadata.tenant_id == current_user.tenant_id).order_by(EgressMetadata.delivered_at.desc()).limit(limit).all()
     return [
         {
             "id": r.id,
@@ -80,8 +84,8 @@ def list_egress_records(limit: int = 50, db: Session = Depends(get_db)):
     ]
 
 @router.get("/records/{payload_id}")
-def get_egress_proof_detail(payload_id: str, db: Session = Depends(get_db)):
-    r = db.query(EgressMetadata).filter(EgressMetadata.payload_id == payload_id).first()
+def get_egress_proof_detail(payload_id: str, current_user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+    r = db.query(EgressMetadata).filter(EgressMetadata.payload_id == payload_id, EgressMetadata.tenant_id == current_user.tenant_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Egress record not found")
 
