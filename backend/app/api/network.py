@@ -515,7 +515,7 @@ def trigger_immediate_device_check(
     elif alert_collector and probe["status"] == "DEGRADED":
         alert = IncidentAlert(
             tenant_id=current_user.tenant_id,
-            collector_id="col-network-guard",
+            collector_id=alert_collector.id,
             alert_type="NETWORK_SERVICE_DEGRADED",
             severity="HIGH",
             metric_name="latency_ms",
