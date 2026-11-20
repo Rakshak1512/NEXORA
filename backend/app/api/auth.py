@@ -103,61 +103,13 @@ def register_organization(data: OrganizationRegisterRequest, db: Session = Depen
         "expires_in_minutes": 10
     }
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", response_model=TokenResponse, deprecated=True)
 def register_legacy(data: UserRegister, db: Session = Depends(get_db)):
-    """Legacy/direct registration endpoint for backwards compatibility."""
-    clean_email = data.email.lower().strip()
-    existing = db.query(Profile).filter(Profile.email == clean_email).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An account with this email address already exists."
-        )
-
-    # Resolve default organization and tenant
-    org = db.query(Organization).first()
-    org_id = data.organization_id or (org.id if org else None)
-
-    tenant = db.query(Tenant).first()
-    tenant_id = data.tenant_id or (tenant.id if tenant else None)
-
-    hashed_pw = get_password_hash(data.password)
-    user = Profile(
-        email=clean_email,
-        password_hash=hashed_pw,
-        full_name=data.full_name,
-        role=data.role or "Operator",
-        organization_id=org_id,
-        tenant_id=tenant_id,
-        is_active=True,
-        is_verified=True
+    """Reject legacy direct registration because it bypasses email verification and role controls."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Direct registration is disabled. Use /auth/register-org and complete email OTP verification."
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    if org_id:
-        membership = OrganizationMembership(
-            organization_id=org_id,
-            user_id=user.id,
-            role=data.role or "Operator"
-        )
-        db.add(membership)
-        db.commit()
-
-    token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role,
-            "organization_id": user.organization_id,
-            "tenant_id": user.tenant_id
-        }
-    }
 
 @router.post("/verify-otp")
 def verify_otp(data: OTPVerifyRequest, db: Session = Depends(get_db)):
