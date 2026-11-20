@@ -17,19 +17,24 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     API_V1_STR: str = "/api"
 
-    # Database
-    DATABASE_URL: str = "sqlite:///./cicada_saas.db"
+    # Database (Defaults to persistent backend/cynera.db)
+    DATABASE_URL: str = "sqlite:///./backend/cynera.db"
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
     # Security
-    JWT_SECRET_KEY: str = "cicada-2026-super-secret-jwt-key-98127398127"
+    JWT_SECRET_KEY: str = "cynera-2026-super-secret-jwt-key-98127398127"
     JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
     ALGORITHM: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     COLLECTOR_AUTH_SECRET: str = "secret-collector-token-01"
+
+    # Email & OTP (Resend API)
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+    OTP_HASH_SECRET: str = "cynera-otp-salt-98723498237"
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"

@@ -15,6 +15,13 @@ CREATE TABLE IF NOT EXISTS organizations (
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
     plan VARCHAR(50) DEFAULT 'enterprise',
+    org_type VARCHAR(100) DEFAULT 'Enterprise',
+    industry VARCHAR(100) DEFAULT 'Technology',
+    country VARCHAR(100) DEFAULT 'Global',
+    website VARCHAR(255),
+    org_size VARCHAR(50) DEFAULT '10-50',
+    owner_id UUID,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -31,25 +38,98 @@ CREATE TABLE IF NOT EXISTS tenants (
     UNIQUE(organization_id, slug)
 );
 
--- 3. PROFILES & ROLES
-CREATE TYPE user_role_enum AS ENUM (
-    'Super Administrator',
-    'Organization Administrator',
-    'Operator',
-    'Viewer'
-);
-
+-- 3. PROFILES, MEMBERSHIPS & AUTH
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
-    role user_role_enum NOT NULL DEFAULT 'Operator',
+    role VARCHAR(50) NOT NULL DEFAULT 'Operator',
+    job_title VARCHAR(100),
+    phone VARCHAR(50),
+    is_verified BOOLEAN DEFAULT TRUE,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
     organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL,
     tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS organization_memberships (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL DEFAULT 'Organization Owner',
+    is_active BOOLEAN DEFAULT TRUE,
+    invited_by UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(organization_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS otp_challenges (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    purpose VARCHAR(50) NOT NULL,
+    attempts INT DEFAULT 0,
+    resend_count INT DEFAULT 0,
+    is_used BOOLEAN DEFAULT FALSE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    last_sent_at TIMESTAMPTZ DEFAULT NOW(),
+    payload_data TEXT DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    key_prefix VARCHAR(30) NOT NULL,
+    key_hash VARCHAR(255) NOT NULL,
+    permissions JSONB DEFAULT '["read", "write"]'::jsonb,
+    last_used_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS embed_widget_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    widget_type VARCHAR(50) DEFAULT 'health_status',
+    allowed_domains JSONB DEFAULT '["*"]'::jsonb,
+    theme VARCHAR(20) DEFAULT 'dark',
+    is_active BOOLEAN DEFAULT TRUE,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'info',
+    is_read BOOLEAN DEFAULT FALSE,
+    link VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS report_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    report_type VARCHAR(50) DEFAULT 'executive_summary',
+    time_range VARCHAR(50) DEFAULT 'last_7_days',
+    summary_json TEXT DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 4. COLLECTORS & REGISTRATIONS

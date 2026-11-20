@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Server, Cpu, Network, Shield, 
   FileCheck2, BrainCircuit, AlertOctagon, Sparkles, 
   CheckSquare, Globe, BarChart3, History, Sliders, 
-  Settings, X, ShieldAlert
+  Settings, X, ShieldAlert, Building2, Key, FileText
 } from 'lucide-react';
 
 const navItems = [
@@ -20,6 +20,9 @@ const navItems = [
   { path: '/approvals', label: 'Approval Center', icon: CheckSquare },
   { path: '/global', label: 'Global Operations', icon: Globe },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { path: '/reports', label: 'Reports & Audits', icon: FileText },
+  { path: '/organization', label: 'Organization & Team', icon: Building2 },
+  { path: '/developer', label: 'Developer & API Keys', icon: Key },
   { path: '/audit-logs', label: 'Audit Logs', icon: History },
   { path: '/scenarios', label: 'Scenario Control', icon: Sliders },
   { path: '/settings', label: 'Settings', icon: Settings }

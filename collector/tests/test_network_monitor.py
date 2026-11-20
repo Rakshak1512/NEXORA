@@ -74,3 +74,4 @@ def test_network_allowlist_filtering():
     assert "open_ports" in filtered
     assert "unauthorized_raw_packet_dump" in rejected
     assert "unauthorized_raw_packet_dump" not in filtered
+

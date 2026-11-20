@@ -277,3 +277,4 @@ class LocalNetworkMonitor:
         # Apply local secret redactor
         sanitized_check, _, _ = LocalDataRedactor.sanitize_dictionary(raw_check)
         return sanitized_check
+

@@ -11,7 +11,10 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import OtpVerification from './pages/OtpVerification';
 import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import EmbedWidgetView from './pages/EmbedWidgetView';
 import NotFound from './pages/NotFound';
 
 // Protected Views
@@ -27,6 +30,9 @@ import AIRecommendationsView from './pages/AIRecommendationsView';
 import ApprovalCenterView from './pages/ApprovalCenterView';
 import GlobalOperationsView from './pages/GlobalOperationsView';
 import AnalyticsView from './pages/AnalyticsView';
+import ReportsView from './pages/ReportsView';
+import OrganizationManagementView from './pages/OrganizationManagementView';
+import DeveloperPortalView from './pages/DeveloperPortalView';
 import AuditLogsView from './pages/AuditLogsView';
 import ScenarioControlView from './pages/ScenarioControlView';
 import SettingsView from './pages/SettingsView';
@@ -40,8 +46,6 @@ const ProtectedRoute = ({ children }) => {
       </div>
     );
   }
-  // If not logged in, we still allow demo browsing or redirect to login
-  // In enterprise demo mode, allow access if token exists or redirect
   const token = localStorage.getItem('cynera_token') || localStorage.getItem('cicada_token');
   if (!user && !token) {
     return <Navigate to="/login" replace />;
@@ -60,7 +64,12 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/verify-otp" element={<OtpVerification />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+
+              {/* Public Standalone Embeddable Monitoring Widget */}
+              <Route path="/embed/:token" element={<EmbedWidgetView />} />
 
               {/* Protected Operational Dashboard */}
               <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
@@ -76,6 +85,9 @@ function App() {
                 <Route path="/approvals" element={<ApprovalCenterView />} />
                 <Route path="/global" element={<GlobalOperationsView />} />
                 <Route path="/analytics" element={<AnalyticsView />} />
+                <Route path="/reports" element={<ReportsView />} />
+                <Route path="/organization" element={<OrganizationManagementView />} />
+                <Route path="/developer" element={<DeveloperPortalView />} />
                 <Route path="/audit-logs" element={<AuditLogsView />} />
                 <Route path="/scenarios" element={<ScenarioControlView />} />
                 <Route path="/settings" element={<SettingsView />} />
@@ -92,4 +104,3 @@ function App() {
 }
 
 export default App;
-

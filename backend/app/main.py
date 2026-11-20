@@ -10,7 +10,8 @@ from .models.models import (
     Organization, Tenant, Profile, Collector, Incident,
     IncidentAlert, AIRecommendation, RemediationApproval, PerformanceBenchmark,
     InfrastructureMetric, NetworkMetric, SecuritySummary,
-    NetworkDevice, NetworkCheckResult
+    NetworkDevice, NetworkCheckResult, OrganizationMembership,
+    APIKey, EmbedWidgetToken, Notification
 )
 from .auth.jwt import get_password_hash
 from .websocket.manager import ws_manager
@@ -26,6 +27,10 @@ from .api.approvals import router as approvals_router
 from .api.scenarios import router as operations_router
 from .api.settings import router as settings_router
 from .api.network import router as network_router
+from .api.organization import router as organization_router
+from .api.developer import router as developer_router
+from .api.reports import router as reports_router
+from .api.notifications import router as notifications_router
 
 def seed_database_if_empty():
     """Initializes tables and populates with realistic enterprise seed data."""
@@ -357,6 +362,48 @@ def seed_database_if_empty():
                 db.add_all([nd1, nd2, nd3, nd4])
                 db.commit()
                 print("[Database] Seeded 4 default enterprise network devices.")
+
+        # Ensure memberships exist for existing seeded profiles
+        org = db.query(Organization).first()
+        if org:
+            admin_user = db.query(Profile).filter(Profile.email == "admin@cynera.io").first()
+            if admin_user:
+                existing_mem = db.query(OrganizationMembership).filter(
+                    OrganizationMembership.organization_id == org.id,
+                    OrganizationMembership.user_id == admin_user.id
+                ).first()
+                if not existing_mem:
+                    db.add(OrganizationMembership(
+                        organization_id=org.id,
+                        user_id=admin_user.id,
+                        role="Organization Owner"
+                    ))
+                    db.commit()
+
+            # Seed default API key if empty
+            if db.query(APIKey).filter(APIKey.organization_id == org.id).count() == 0:
+                import hashlib
+                raw_k = "cyn_live_default_demo_api_key_2026"
+                db.add(APIKey(
+                    organization_id=org.id,
+                    name="Default Production Service Key",
+                    key_prefix="cyn_live_demo...",
+                    key_hash=hashlib.sha256(raw_k.encode()).hexdigest(),
+                    permissions=json.dumps(["read", "write"])
+                ))
+                db.commit()
+
+            # Seed default embed widget token if empty
+            if db.query(EmbedWidgetToken).filter(EmbedWidgetToken.organization_id == org.id).count() == 0:
+                db.add(EmbedWidgetToken(
+                    organization_id=org.id,
+                    name="Public Corporate Status Badge",
+                    token="cyn_embed_public_live_token",
+                    widget_type="health_status",
+                    allowed_domains=json.dumps(["*"]),
+                    theme="dark"
+                ))
+                db.commit()
     finally:
         db.close()
 
@@ -392,6 +439,10 @@ app.include_router(approvals_router, prefix="/api")
 app.include_router(operations_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(network_router, prefix="/api")
+app.include_router(organization_router, prefix="/api")
+app.include_router(developer_router, prefix="/api")
+app.include_router(reports_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
 
 # WebSocket Endpoint
 @app.websocket("/ws")

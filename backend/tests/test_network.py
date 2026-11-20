@@ -79,3 +79,4 @@ def test_network_summary(client):
     assert "avg_latency_ms" in summary
     assert "avg_packet_loss_pct" in summary
     assert "total_monitored_ports" in summary
+
