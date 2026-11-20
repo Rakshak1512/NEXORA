@@ -4,14 +4,13 @@ import hashlib
 import json
 from fastapi.testclient import TestClient
 from app.main import app
+from auth_helpers import login_as_platform_admin
 from app.services.ssrf_guard import is_ip_private_or_restricted, validate_public_url
 
 client = TestClient(app)
 
 def get_auth_token():
-    res = client.post("/api/auth/login", json={"email": "admin@cynera.io", "password": "Cynera2026!Secure"})
-    assert res.status_code == 200
-    return res.json()["access_token"]
+    return login_as_platform_admin(client)
 
 def test_ssrf_guard_blocks_forbidden_ranges():
     # Loopback
