@@ -19,6 +19,12 @@ class Settings(BaseSettings):
 
     # Database (Defaults to persistent backend/cynera.db)
     DATABASE_URL: str = "sqlite:///./backend/cynera.db"
+    DB_ENGINE: str = "sqlite"
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
+    DB_NAME: str = "cynera.db"
+    DB_USER: str = ""
+    DB_PASSWORD: str = ""
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
@@ -34,7 +40,10 @@ class Settings(BaseSettings):
     # Email & OTP (Resend API)
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+    RESEND_FROM_NAME: str = "CYNERA Security"
+    RESEND_REPLY_TO: str = "support@cynera.io"
     OTP_HASH_SECRET: str = "cynera-otp-salt-98723498237"
+    OTP_EXPIRE_MINUTES: int = 10
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"
