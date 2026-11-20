@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from ..models.models import (
     InfrastructureMetric, NetworkMetric, SecuritySummary,
     Collector, IncidentAlert, Incident, AIRecommendation,
-    RemediationApproval, PerformanceBenchmark
+    RemediationApproval, PerformanceBenchmark,
+    NetworkDevice, NetworkCheckResult
 )
 from ..schemas.schemas import TelemetryIngestPayload
 from ..aiops.anomaly_detector import anomaly_detector
@@ -113,6 +114,48 @@ class TelemetryService:
 
         # 6. RUN AIOPS ANOMALY DETECTION PIPELINE
         detected_anomalies = anomaly_detector.analyze(payload.model_dump())
+
+        # 6b. PROCESS NETWORK DEVICES TELEMETRY CHECKS
+        if payload.network_devices_checks:
+            for net_check in payload.network_devices_checks:
+                dev_id = net_check.get("device_id")
+                ip = net_check.get("ip_address")
+                device = None
+                if dev_id:
+                    device = db.query(NetworkDevice).filter(NetworkDevice.id == dev_id).first()
+                if not device and ip:
+                    device = db.query(NetworkDevice).filter(
+                        NetworkDevice.ip_address == ip,
+                        NetworkDevice.tenant_id == payload.tenant_id
+                    ).first()
+
+                if device:
+                    device.status = net_check.get("check_status", "ONLINE")
+                    device.last_latency_ms = float(net_check.get("latency_ms", 0.0))
+                    device.last_packet_loss_pct = float(net_check.get("packet_loss_pct", 0.0))
+                    device.open_ports_summary = json.dumps(net_check.get("open_ports", []))
+                    device.last_checked_at = now_dt
+
+                    # Save check history record
+                    rec = NetworkCheckResult(
+                        device_id=device.id,
+                        tenant_id=payload.tenant_id,
+                        collector_id=payload.collector_id,
+                        check_type="collector_cycle",
+                        status=device.status,
+                        latency_ms=device.last_latency_ms,
+                        packet_loss_pct=device.last_packet_loss_pct,
+                        open_ports=json.dumps(net_check.get("open_ports", [])),
+                        closed_ports=json.dumps(net_check.get("closed_ports", [])),
+                        port_details=json.dumps(net_check.get("port_details", {})),
+                        metrics_payload=json.dumps(net_check.get("metrics_payload", {}))
+                    )
+                    db.add(rec)
+
+                # Analyze network check for anomalies
+                net_anoms = anomaly_detector.analyze_network_device(net_check)
+                detected_anomalies.extend(net_anoms)
+            db.commit()
         created_alerts = []
         new_incident_data = None
 

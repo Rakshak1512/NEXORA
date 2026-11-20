@@ -71,6 +71,9 @@ class TelemetryIngestPayload(BaseModel):
     is_simulated: Optional[bool] = False
     scenario_name: Optional[str] = "nominal_live"
 
+    # Network devices checks
+    network_devices_checks: Optional[List[Dict[str, Any]]] = None
+
 # Heartbeat
 class HeartbeatPayload(BaseModel):
     collector_id: str

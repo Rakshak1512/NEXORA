@@ -344,6 +344,7 @@ Interactive OpenAPI documentation is available at:
 
 Key API Route Groups:
 - `/api/auth`: Login, registration, user profile, password reset.
+- `/api/network`: IP-based network device management, active ICMP/TCP probes, history timeseries, and subnet summaries.
 - `/api/collectors`: Fleet management, heartbeats, watchdog status.
 - `/api/telemetry`: Metadata ingestion with idempotent duplicate prevention.
 - `/api/metrics`: Summary stats, CPU/Memory/Disk/Latency timeseries.
@@ -359,14 +360,26 @@ Key API Route Groups:
 
 All automated test suites execute locally and pass with 100% success:
 
-#### Collector Tests (10 Passed)
+#### Collector Tests (16 Passed)
 ```powershell
 python -m pytest collector/tests -v
 ```
+- `test_network_monitor.py`: 6 passed (ping localhost reachability, unreachable IP handling, open TCP port check, closed TCP port check, device inspection redaction, allowlist filtering).
 - `test_redactor.py`: 5 passed (password, bearer token, AWS key, connection string, nested dictionary).
 - `test_allowlist.py`: 2 passed (allowlist filtering, required keys validation).
 - `test_queue.py`: 1 passed (enqueue, idempotency, delivery confirmation).
 - `test_collector.py`: 2 passed (live psutil telemetry, egress proof generation).
+
+#### Backend Tests (13 Passed)
+```powershell
+python -m pytest backend/tests -v
+```
+- `test_network.py`: 3 passed (list network devices, CRUD lifecycle with on-demand active probe & history, network summary aggregation).
+- `test_auth.py`: 3 passed (login success, invalid password, registration).
+- `test_telemetry.py`: 2 passed (ingestion, duplicate payload idempotency, unauthorized token).
+- `test_aiops.py`: 3 passed (CPU anomaly detection, event correlation into single incident, explainable recommendations).
+- `test_egress.py`: 1 passed (egress proof recording and retrieval).
+- `test_e2e_integration.py`: 1 passed (complete full-lifecycle end-to-end integration).
 
 #### Backend Tests (10 Passed)
 ```powershell

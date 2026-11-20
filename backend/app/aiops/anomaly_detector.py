@@ -144,5 +144,56 @@ class AIOpsAnomalyDetector:
 
         return anomalies
 
+    def analyze_network_device(self, check: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Evaluates network device probe results for unreachability, closed ports, and latency degradation."""
+        anomalies = []
+        status = check.get("check_status", check.get("status", "ONLINE"))
+        loss = float(check.get("packet_loss_pct", 0.0))
+        lat = float(check.get("latency_ms", 0.0))
+        dev_name = check.get("device_name", check.get("name", check.get("ip_address", "Device")))
+        ip = check.get("ip_address", "")
+        closed_ports = check.get("closed_ports", [])
+
+        if status == "UNREACHABLE" or loss >= 99.0:
+            anomalies.append({
+                "alert_type": "NETWORK_DEVICE_UNREACHABLE",
+                "severity": "CRITICAL",
+                "metric_name": "packet_loss_pct",
+                "metric_value": loss,
+                "threshold_value": 10.0,
+                "message": f"Network device '{dev_name}' ({ip}) is completely unreachable. 100% packet loss detected."
+            })
+        elif loss > 10.0:
+            anomalies.append({
+                "alert_type": "PACKET_LOSS_SPIKE",
+                "severity": "HIGH",
+                "metric_name": "packet_loss_pct",
+                "metric_value": loss,
+                "threshold_value": 10.0,
+                "message": f"High packet drop rate on '{dev_name}' ({ip}): {loss}% packets dropped."
+            })
+
+        if closed_ports and status != "UNREACHABLE":
+            anomalies.append({
+                "alert_type": "NETWORK_SERVICE_DEGRADED",
+                "severity": "HIGH",
+                "metric_name": "closed_tcp_ports",
+                "metric_value": float(len(closed_ports)),
+                "threshold_value": 0.0,
+                "message": f"Monitored TCP service ports unavailable on '{dev_name}' ({ip}): ports {closed_ports} refused connection."
+            })
+
+        if lat > 150.0:
+            anomalies.append({
+                "alert_type": "LATENCY_SPIKE",
+                "severity": "MEDIUM",
+                "metric_name": "latency_ms",
+                "metric_value": lat,
+                "threshold_value": 150.0,
+                "message": f"Elevated network transit latency to '{dev_name}' ({ip}): {lat}ms."
+            })
+
+        return anomalies
+
 anomaly_detector = AIOpsAnomalyDetector()
 

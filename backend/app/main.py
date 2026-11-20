@@ -9,7 +9,8 @@ from .database import engine, Base, SessionLocal
 from .models.models import (
     Organization, Tenant, Profile, Collector, Incident,
     IncidentAlert, AIRecommendation, RemediationApproval, PerformanceBenchmark,
-    InfrastructureMetric, NetworkMetric, SecuritySummary
+    InfrastructureMetric, NetworkMetric, SecuritySummary,
+    NetworkDevice, NetworkCheckResult
 )
 from .auth.jwt import get_password_hash
 from .websocket.manager import ws_manager
@@ -24,6 +25,7 @@ from .api.egress import router as egress_router
 from .api.approvals import router as approvals_router
 from .api.scenarios import router as operations_router
 from .api.settings import router as settings_router
+from .api.network import router as network_router
 
 def seed_database_if_empty():
     """Initializes tables and populates with realistic enterprise seed data."""
@@ -287,6 +289,74 @@ def seed_database_if_empty():
                     db.add_all([u_cynera1, u_cynera2])
                     db.commit()
                     print("[Database] CYNERA credentials provisioned: admin@cynera.io / Cynera2026!Secure")
+
+        # Seed network devices if empty
+        if db.query(NetworkDevice).count() == 0:
+            tenant = db.query(Tenant).first()
+            if tenant:
+                nd1 = NetworkDevice(
+                    tenant_id=tenant.id,
+                    name="Localhost Security Gateway",
+                    ip_address="127.0.0.1",
+                    device_type="Server",
+                    monitoring_methods=json.dumps(["ping", "tcp"]),
+                    tcp_ports=json.dumps([8000, 3000]),
+                    monitoring_interval_seconds=15,
+                    is_active=True,
+                    status="ONLINE",
+                    last_latency_ms=0.5,
+                    last_packet_loss_pct=0.0,
+                    open_ports_summary=json.dumps([8000, 3000]),
+                    last_checked_at=datetime.datetime.now(datetime.timezone.utc)
+                )
+                nd2 = NetworkDevice(
+                    tenant_id=tenant.id,
+                    name="Core Edge Router (US-East)",
+                    ip_address="10.0.1.1",
+                    device_type="Router",
+                    monitoring_methods=json.dumps(["ping", "tcp", "snmp"]),
+                    tcp_ports=json.dumps([80, 443]),
+                    monitoring_interval_seconds=30,
+                    is_active=True,
+                    status="ONLINE",
+                    last_latency_ms=1.2,
+                    last_packet_loss_pct=0.0,
+                    open_ports_summary=json.dumps([80, 443]),
+                    last_checked_at=datetime.datetime.now(datetime.timezone.utc)
+                )
+                nd3 = NetworkDevice(
+                    tenant_id=tenant.id,
+                    name="Postgres DB Cluster Primary",
+                    ip_address="10.0.1.25",
+                    device_type="Server",
+                    monitoring_methods=json.dumps(["ping", "tcp"]),
+                    tcp_ports=json.dumps([5432, 22]),
+                    monitoring_interval_seconds=30,
+                    is_active=True,
+                    status="ONLINE",
+                    last_latency_ms=0.8,
+                    last_packet_loss_pct=0.0,
+                    open_ports_summary=json.dumps([5432]),
+                    last_checked_at=datetime.datetime.now(datetime.timezone.utc)
+                )
+                nd4 = NetworkDevice(
+                    tenant_id=tenant.id,
+                    name="Perimeter Ingress Firewall",
+                    ip_address="10.0.1.254",
+                    device_type="Firewall",
+                    monitoring_methods=json.dumps(["ping", "tcp", "snmp"]),
+                    tcp_ports=json.dumps([443, 22]),
+                    monitoring_interval_seconds=30,
+                    is_active=True,
+                    status="ONLINE",
+                    last_latency_ms=1.6,
+                    last_packet_loss_pct=0.0,
+                    open_ports_summary=json.dumps([443]),
+                    last_checked_at=datetime.datetime.now(datetime.timezone.utc)
+                )
+                db.add_all([nd1, nd2, nd3, nd4])
+                db.commit()
+                print("[Database] Seeded 4 default enterprise network devices.")
     finally:
         db.close()
 
@@ -321,6 +391,7 @@ app.include_router(egress_router, prefix="/api")
 app.include_router(approvals_router, prefix="/api")
 app.include_router(operations_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
+app.include_router(network_router, prefix="/api")
 
 # WebSocket Endpoint
 @app.websocket("/ws")

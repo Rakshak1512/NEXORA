@@ -9,6 +9,7 @@ from .allowlist import MetadataAllowlistValidator
 from .egress_proof import EgressProofBuilder
 from .queue_manager import PersistentQueueManager
 from .sender import TelemetrySender
+from .network_monitor import LocalNetworkMonitor
 
 class LocalCollectorEngine:
     """
@@ -21,6 +22,7 @@ class LocalCollectorEngine:
         self.security = LocalSecurityMonitor()
         self.queue = PersistentQueueManager(config.LOCAL_QUEUE_PATH)
         self.sender = TelemetrySender()
+        self.network_monitor = LocalNetworkMonitor()
         self.active_scenario: Optional[str] = None
         self.outage_simulation: bool = False
 
@@ -52,6 +54,22 @@ class LocalCollectorEngine:
             force_burst=(self.active_scenario == "failed_logins")
         )
 
+        # 1b. Perform real local network probe on local gateway / default loopback
+        try:
+            net_check = self.network_monitor.inspect_device({
+                "id": "dev-local-loopback",
+                "name": "Localhost Perimeter Node",
+                "ip_address": "127.0.0.1",
+                "device_type": "Server",
+                "monitoring_methods": ["ping", "tcp"],
+                "tcp_ports": [8000, 3000]
+            })
+            infra["latency_ms"] = net_check["latency_ms"]
+            infra["packet_loss_pct"] = net_check["packet_loss_pct"]
+            network_checks = [net_check]
+        except Exception:
+            network_checks = []
+
         # 2. Modify if scenario active
         if self.active_scenario == "cpu_spike":
             infra["cpu_utilization_pct"] = 96.4
@@ -78,6 +96,7 @@ class LocalCollectorEngine:
         local_raw_sample = {
             **infra,
             **sec,
+            "network_devices_checks": network_checks,
             "raw_db_connection": "postgres://cynera_admin:SuperSecretPassword123!@10.0.1.25:5432/core_db",
             "internal_jwt_token": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.fake_token_example",
             "aws_collector_key": "AKIAIOSFODNN7EXAMPLE",

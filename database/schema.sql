@@ -119,6 +119,45 @@ CREATE TABLE IF NOT EXISTS network_metrics (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 5b. REGISTERED NETWORK DEVICES & IP MONITORING
+CREATE TABLE IF NOT EXISTS network_devices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(100) NOT NULL,
+    device_type VARCHAR(50) DEFAULT 'Server', -- Server, Router, Switch, Firewall, Workstation, Other
+    monitoring_methods TEXT DEFAULT '["ping", "tcp"]', -- JSON array
+    tcp_ports TEXT DEFAULT '[80, 443]', -- JSON array
+    monitoring_interval_seconds INT DEFAULT 30,
+    is_active BOOLEAN DEFAULT TRUE,
+    status VARCHAR(50) DEFAULT 'ONLINE', -- ONLINE, DEGRADED, OFFLINE, UNREACHABLE, UNKNOWN
+    last_latency_ms NUMERIC(8,2) DEFAULT 0,
+    last_packet_loss_pct NUMERIC(5,2) DEFAULT 0,
+    open_ports_summary TEXT DEFAULT '[]', -- JSON array
+    snmp_config TEXT DEFAULT '{}',
+    ssh_config TEXT DEFAULT '{}',
+    last_checked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS network_check_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_id UUID NOT NULL REFERENCES network_devices(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    collector_id VARCHAR(100),
+    check_type VARCHAR(50) DEFAULT 'ping',
+    status VARCHAR(50) DEFAULT 'SUCCESS',
+    latency_ms NUMERIC(8,2) DEFAULT 0,
+    packet_loss_pct NUMERIC(5,2) DEFAULT 0,
+    open_ports TEXT DEFAULT '[]',
+    closed_ports TEXT DEFAULT '[]',
+    port_details TEXT DEFAULT '{}',
+    metrics_payload TEXT DEFAULT '{}',
+    error_message TEXT,
+    recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 6. SECURITY SUMMARIES (Derived summaries only - NO RAW LOGS OR SECRETS)
 CREATE TABLE IF NOT EXISTS security_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

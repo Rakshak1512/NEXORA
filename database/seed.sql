@@ -36,6 +36,15 @@ VALUES
     ('col-backup-agent-04', '11111111-1111-1111-1111-111111111111', 'Disaster Recovery Replica Agent', 'dr-standby-04.dr.internal', 'node-hash-1e8c9a', '1.4.1', 'offline', 'secret-collector-token-04', 10, NOW() - INTERVAL '30 minutes')
 ON CONFLICT (id) DO NOTHING;
 
+-- 4b. Registered Network Devices
+INSERT INTO network_devices (id, tenant_id, name, ip_address, device_type, monitoring_methods, tcp_ports, monitoring_interval_seconds, is_active, status, last_latency_ms, last_packet_loss_pct, open_ports_summary, last_checked_at)
+VALUES
+    ('55555555-5555-5555-5555-555555555551', '11111111-1111-1111-1111-111111111111', 'Localhost Security Gateway', '127.0.0.1', 'Server', '["ping", "tcp"]', '[8000, 3000]', 15, TRUE, 'ONLINE', 0.5, 0.0, '[8000, 3000]', NOW()),
+    ('55555555-5555-5555-5555-555555555552', '11111111-1111-1111-1111-111111111111', 'Core Edge Router (US-East)', '10.0.1.1', 'Router', '["ping", "tcp", "snmp"]', '[80, 443]', 30, TRUE, 'ONLINE', 1.2, 0.0, '[80, 443]', NOW()),
+    ('55555555-5555-5555-5555-555555555553', '11111111-1111-1111-1111-111111111111', 'Postgres DB Cluster Primary', '10.0.1.25', 'Server', '["ping", "tcp"]', '[5432, 22]', 30, TRUE, 'ONLINE', 0.8, 0.0, '[5432]', NOW()),
+    ('55555555-5555-5555-5555-555555555554', '11111111-1111-1111-1111-111111111111', 'Perimeter Ingress Firewall', '10.0.1.254', 'Firewall', '["ping", "tcp", "snmp"]', '[443, 22]', 30, TRUE, 'ONLINE', 1.6, 0.0, '[443]', NOW())
+ON CONFLICT (id) DO NOTHING;
+
 -- 5. Incidents
 INSERT INTO incidents (id, incident_number, tenant_id, collector_id, title, description, severity, status, affected_components, contributing_signals, correlation_reason)
 VALUES 

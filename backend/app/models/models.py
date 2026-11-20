@@ -251,3 +251,44 @@ class PerformanceBenchmark(Base):
     lost_record_count = Column(Integer, default=0)
     recorded_at = Column(DateTime, default=utc_now)
 
+class NetworkDevice(Base):
+    __tablename__ = "network_devices"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    tenant_id = Column(String(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    ip_address = Column(String(100), nullable=False)
+    device_type = Column(String(50), default="Server") # Server, Router, Switch, Firewall, Workstation, Other
+    monitoring_methods = Column(Text, default='["ping", "tcp"]') # JSON list: ping, tcp, snmp, ssh, syslog
+    tcp_ports = Column(Text, default='[80, 443]') # JSON list: e.g. [80, 443, 22]
+    monitoring_interval_seconds = Column(Integer, default=30)
+    is_active = Column(Boolean, default=True)
+    status = Column(String(50), default="ONLINE") # ONLINE, DEGRADED, OFFLINE, UNREACHABLE, UNKNOWN
+    last_latency_ms = Column(Float, default=0.0)
+    last_packet_loss_pct = Column(Float, default=0.0)
+    open_ports_summary = Column(Text, default='[]') # JSON list
+    snmp_config = Column(Text, default='{}') # Port 161, version v2c/v3, safe metadata
+    ssh_config = Column(Text, default='{}')  # Port 22, safe user metadata
+    last_checked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now)
+
+class NetworkCheckResult(Base):
+    __tablename__ = "network_check_results"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    device_id = Column(String(36), ForeignKey("network_devices.id", ondelete="CASCADE"), nullable=False)
+    tenant_id = Column(String(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    collector_id = Column(String(100), nullable=True)
+    check_type = Column(String(50), default="ping") # ping, tcp, snmp, ssh, syslog
+    status = Column(String(50), default="SUCCESS") # SUCCESS, FAILED, DEGRADED, CLOSED, FILTERED, UNREACHABLE
+    latency_ms = Column(Float, default=0.0)
+    packet_loss_pct = Column(Float, default=0.0)
+    open_ports = Column(Text, default='[]') # JSON list: [80, 443]
+    closed_ports = Column(Text, default='[]') # JSON list: [22]
+    port_details = Column(Text, default='{}') # JSON dict of port -> {status, latency_ms}
+    metrics_payload = Column(Text, default='{}') # Approved metadata (interfaces, etc.)
+    error_message = Column(Text, nullable=True)
+    recorded_at = Column(DateTime, default=utc_now)
+
+

@@ -36,6 +36,20 @@ class MetadataAllowlistValidator:
         "active_connections",
         "connectivity_status",
 
+        # Network Device Check Metadata
+        "device_id",
+        "device_name",
+        "device_type",
+        "ip_address",
+        "check_type",
+        "check_status",
+        "open_ports",
+        "closed_ports",
+        "port_details",
+        "metrics_payload",
+        "error_message",
+        "network_devices_checks",
+
         # Security summaries (Aggregated stats only, no individual user identifiers)
         "failed_login_count",
         "suspicious_activity_score",
