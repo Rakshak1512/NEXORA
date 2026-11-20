@@ -22,7 +22,7 @@ const Login = () => {
       await demoLogin(demoEmail);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Unable to open demo account. Check that the backend is running in development mode.');
+      setError(err.response?.data?.detail || (err.request ? 'Cannot reach the backend. Start FastAPI at http://127.0.0.1:8000 and restart the Vite frontend.' : err.message) || 'Unable to open demo account.');
     } finally {
       setLoading(false);
     }
