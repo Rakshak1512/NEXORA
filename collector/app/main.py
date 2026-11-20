@@ -7,7 +7,7 @@ from .heartbeat import CollectorHeartbeat
 
 def run_collector(scenario: str = None, iterations: int = 0):
     print("=" * 70)
-    print("CICADA OBSERVE — INDEPENDENT LOCAL COLLECTOR (Tier 1 Perimeter)")
+    print("CYNERA — INDEPENDENT LOCAL COLLECTOR (Tier 1 Perimeter)")
     print(f"Collector ID:   {config.COLLECTOR_ID}")
     print(f"Tenant ID:      {config.TENANT_ID}")
     print(f"Backend Target: {config.BACKEND_URL}")
@@ -56,7 +56,7 @@ def run_collector(scenario: str = None, iterations: int = 0):
         print("[Collector] Local queue safely persisted on disk. Exiting.")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Cicada Observe Local Collector")
+    parser = argparse.ArgumentParser(description="CYNERA Local Collector")
     parser.add_argument("--scenario", type=str, default=None, help="Trigger specific scenario")
     parser.add_argument("--iterations", type=int, default=0, help="Number of cycles to run (0 for infinite)")
     args = parser.parse_args()

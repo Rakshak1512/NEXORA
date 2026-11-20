@@ -19,7 +19,7 @@ const LandingPage = () => {
           </div>
           <div>
             <span className="font-extrabold text-lg tracking-wider text-slate-100 flex items-center gap-1.5">
-              CICADA <span className="text-cyan-400 font-mono text-xs px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">OBSERVE</span>
+              CYNERA <span className="text-cyan-400 font-mono text-xs px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">AIOPS</span>
             </span>
           </div>
         </div>
@@ -48,7 +48,7 @@ const LandingPage = () => {
 
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-xs text-cyan-300 font-mono mb-8">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>CICADA 2026 OFFICIAL HACKATHON WINNING PLATFORM</span>
+          <span>CYNERA OFFICIAL PLATFORM — SEE MORE. SECURE MORE.</span>
         </div>
 
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-100 leading-[1.1] mb-6">
@@ -86,7 +86,7 @@ const LandingPage = () => {
                 <span className="w-3 h-3 rounded-full bg-rose-500" />
                 <span className="w-3 h-3 rounded-full bg-amber-500" />
                 <span className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span className="text-xs font-mono text-slate-500 ml-3">cicada-observe.enterprise.io/dashboard</span>
+                <span className="text-xs font-mono text-slate-500 ml-3">cynera.enterprise.io/dashboard</span>
               </div>
               <span className="text-xs font-mono text-emerald-400 flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -393,7 +393,7 @@ const LandingPage = () => {
               C
             </div>
             <div>
-              <span className="font-bold text-slate-200">CICADA OBSERVE</span> — Official Hackathon 2026 Production Platform
+              <span className="font-bold text-slate-200">CYNERA</span> — Cyber Network Evaluation and Risk Analytics (AI-Powered Infrastructure Observability)
             </div>
           </div>
           <div className="flex items-center gap-6">

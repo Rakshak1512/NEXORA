@@ -19,8 +19,8 @@ def test_full_system_lifecycle_e2e():
     """
     # 1. Login
     login_res = client.post("/api/auth/login", json={
-        "email": "admin@cicada.io",
-        "password": "Cicada2026!Secure"
+        "email": "admin@cynera.io",
+        "password": "Cynera2026!Secure"
     })
     assert login_res.status_code == 200
     token = login_res.json()["access_token"]

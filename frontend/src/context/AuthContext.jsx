@@ -8,12 +8,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('cicada_user');
-    const token = localStorage.getItem('cicada_token');
+    const savedUser = localStorage.getItem('cynera_user') || localStorage.getItem('cicada_user');
+    const token = localStorage.getItem('cynera_token') || localStorage.getItem('cicada_token');
     if (savedUser && token) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (e) {
+        localStorage.removeItem('cynera_user');
         localStorage.removeItem('cicada_user');
       }
     }
@@ -23,8 +24,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     const { access_token, user: userData } = res.data;
-    localStorage.setItem('cicada_token', access_token);
-    localStorage.setItem('cicada_user', JSON.stringify(userData));
+    localStorage.setItem('cynera_token', access_token);
+    localStorage.setItem('cynera_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
   };
@@ -37,13 +38,15 @@ export const AuthProvider = ({ children }) => {
       role
     });
     const { access_token, user: userData } = res.data;
-    localStorage.setItem('cicada_token', access_token);
-    localStorage.setItem('cicada_user', JSON.stringify(userData));
+    localStorage.setItem('cynera_token', access_token);
+    localStorage.setItem('cynera_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
   };
 
   const logout = () => {
+    localStorage.removeItem('cynera_token');
+    localStorage.removeItem('cynera_user');
     localStorage.removeItem('cicada_token');
     localStorage.removeItem('cicada_user');
     setUser(null);
@@ -57,4 +60,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-

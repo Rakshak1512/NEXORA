@@ -1,6 +1,7 @@
 #!/bin/bash
 echo "===================================================================="
-echo "Starting CICADA OBSERVE Platform (Backend, Frontend, Collector)"
+echo "Starting CYNERA Platform (Backend, Frontend, Collector)"
+echo "Cyber Network Evaluation and Risk Analytics"
 echo "===================================================================="
 
 cd "$(dirname "$0")/../backend" && python run.py &
@@ -20,4 +21,3 @@ echo "- Backend:  http://127.0.0.1:8000 (Docs at /docs)"
 echo "- Collector: PID $COLLECTOR_PID"
 
 wait $BACKEND_PID $FRONTEND_PID $COLLECTOR_PID
-

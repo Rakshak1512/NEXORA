@@ -8,6 +8,18 @@ export default {
   theme: {
     extend: {
       colors: {
+        cynera: {
+          dark: '#070C14',
+          card: '#0D1524',
+          border: '#1A2740',
+          hover: '#131F36',
+          cyan: '#00E5FF',
+          teal: '#00BFA5',
+          navy: '#0A192F',
+          amber: '#FFB300',
+          rose: '#FF3366',
+          emerald: '#00E676',
+        },
         cicada: {
           dark: '#070C14',
           card: '#0D1524',

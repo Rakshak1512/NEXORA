@@ -8,9 +8,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - APP_NAME=CICADA OBSERVE
-      - DATABASE_URL=sqlite:///./cicada_saas.db
-      - JWT_SECRET=cicada-2026-super-secret-jwt-key-98127398127
+      - APP_NAME=CYNERA
+      - DATABASE_URL=sqlite:///./cynera_saas.db
+      - JWT_SECRET=cynera-2026-super-secret-jwt-key-98127398127
       - COLLECTOR_AUTH_SECRET=secret-collector-token-01
     volumes:
       - ./backend/data:/app/data

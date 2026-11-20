@@ -79,7 +79,7 @@ const Register = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="operator@cicada.io"
+                placeholder="operator@cynera.io"
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#070C14] border border-[#1A2740] text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
               />
             </div>

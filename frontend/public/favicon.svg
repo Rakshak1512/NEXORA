@@ -1,9 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
-  <circle cx="50" cy="50" r="48" fill="#0A192F" stroke="#00E5FF" stroke-width="3"/>
-  <path d="M50 20 L75 40 L65 80 L35 80 L25 40 Z" fill="#0D1524" stroke="#00BFA5" stroke-width="2.5"/>
-  <circle cx="42" cy="42" r="5" fill="#00E5FF"/>
-  <circle cx="58" cy="42" r="5" fill="#00E5FF"/>
-  <path d="M50 48 L50 72" stroke="#00E5FF" stroke-width="3" stroke-linecap="round"/>
-  <path d="M38 60 L20 52 M62 60 L80 52 M38 68 L22 72 M62 68 L78 72" stroke="#00BFA5" stroke-width="2" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="cyneraGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#00BFA5"/>
+    </linearGradient>
+    <radialGradient id="cyneraGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Background Shield Node -->
+  <circle cx="50" cy="50" r="48" fill="#070C14" stroke="#1A2740" stroke-width="2"/>
+  <circle cx="50" cy="50" r="42" fill="url(#cyneraGlow)"/>
+  
+  <!-- Outer Hexagon / Radar Shield -->
+  <polygon points="50,14 82,30 82,70 50,86 18,70 18,30" 
+           fill="#0D1524" 
+           stroke="url(#cyneraGrad)" 
+           stroke-width="2.5" 
+           stroke-linejoin="round"/>
+           
+  <!-- Inner Cyber Nexus Triangles & Radar Node -->
+  <polygon points="50,26 72,64 28,64" 
+           fill="none" 
+           stroke="#00E5FF" 
+           stroke-width="1.8" 
+           stroke-opacity="0.7"/>
+           
+  <!-- Core Data Pulse Node -->
+  <circle cx="50" cy="50" r="7" fill="url(#cyneraGrad)"/>
+  <circle cx="50" cy="50" r="3" fill="#070C14"/>
+  
+  <!-- Radar Scanner Lines -->
+  <line x1="50" y1="26" x2="50" y2="50" stroke="#00E5FF" stroke-width="1.5" stroke-dasharray="2 2"/>
+  <line x1="72" y1="64" x2="50" y2="50" stroke="#00BFA5" stroke-width="1.5" stroke-dasharray="2 2"/>
+  <line x1="28" y1="64" x2="50" y2="50" stroke="#00BFA5" stroke-width="1.5" stroke-dasharray="2 2"/>
 </svg>
-

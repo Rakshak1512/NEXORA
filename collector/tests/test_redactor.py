@@ -20,7 +20,7 @@ def test_aws_key_redaction():
     assert "AKIAIOSFODNN7EXAMPLE" not in cleaned
 
 def test_connection_string_redaction():
-    text = "postgres://cicada_admin:MyP@ssw0rd!@10.0.1.5:5432/core_db"
+    text = "postgres://cynera_admin:MyP@ssw0rd!@10.0.1.5:5432/core_db"
     cleaned, caught = LocalDataRedactor.redact_text(text)
     assert "[REDACTED_CONN_STRING]" in cleaned
     assert "MyP@ssw0rd!" not in cleaned

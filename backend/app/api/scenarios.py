@@ -197,7 +197,7 @@ async def trigger_scenario(data: ScenarioTriggerRequest, db: Session = Depends(g
 def health_check():
     return {
         "status": "HEALTHY",
-        "service": "CICADA OBSERVE — SaaS Central Platform",
+        "service": "CYNERA — SaaS Central Platform",
         "version": "1.4.2",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }

@@ -1,5 +1,6 @@
 # ====================================================================
-# CICADA OBSERVE: .gitignore
+# CYNERA: .gitignore
+# Cyber Network Evaluation and Risk Analytics
 # Strictly excludes all private credentials, runtime databases,
 # dependencies, build outputs, and logs.
 # ====================================================================
@@ -14,9 +15,11 @@
 *.db
 *.sqlite
 *.sqlite3
+cynera_saas.db
 cicada_saas.db
 collector/data/local_buffer.db
 collector/data/*.db
+backend/cynera_saas.db
 backend/cicada_saas.db
 
 # Dependencies

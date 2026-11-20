@@ -71,7 +71,7 @@ const AIOpsIntelligenceView = () => {
 
       {/* Explanation Architecture */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Anomaly Detection Pipeline" subtitle="How CICADA OBSERVE identifies outliers without seeing raw logs">
+        <Card title="Anomaly Detection Pipeline" subtitle="How CYNERA identifies outliers without seeing raw logs">
           <div className="space-y-4 text-xs text-slate-300">
             <div className="p-3.5 rounded-xl bg-[#070C14] border border-[#1A2740]">
               <div className="font-semibold text-cyan-400 mb-1">1. Moving Statistical Baseline (Z-Score & IQR)</div>

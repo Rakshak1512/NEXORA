@@ -47,9 +47,11 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
             <div>
               <span className="font-extrabold text-base tracking-wider text-slate-100 flex items-center gap-1">
-                CICADA <span className="text-cyan-400 font-mono text-xs px-1 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">OBSERVE</span>
+                CYNERA <span className="text-cyan-400 font-mono text-xs px-1 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20">AIOPS</span>
               </span>
-              <p className="text-[10px] text-slate-400 font-medium">Enterprise AIOps Platform</p>
+              <p className="text-[9px] text-slate-400 font-medium truncate max-w-[140px]" title="Cyber Network Evaluation and Risk Analytics">
+                Cyber Network Eval & Risk Analytics
+              </p>
             </div>
           </NavLink>
           <button 

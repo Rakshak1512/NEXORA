@@ -1,6 +1,6 @@
 # Testing & Verification Guide
 
-CICADA OBSERVE includes automated test suites covering the Python Collector, FastAPI Backend, and React Frontend.
+CYNERA includes automated test suites covering the Python Collector, FastAPI Backend, and React Frontend.
 
 ## 1. Running Collector Tests
 Tests verify regex redaction, strict allowlist enforcement, SQLite queue transactions, and idempotent delivery.

@@ -4,11 +4,11 @@ const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
   useEffect(() => {
-    // Permanently enforce dark mode across the entire application
+    // Permanently enforce dark mode across the entire CYNERA application
     const root = document.documentElement;
     root.classList.add('dark');
     root.classList.remove('light');
-    localStorage.setItem('cicada_theme', 'dark');
+    localStorage.setItem('cynera_theme', 'dark');
   }, []);
 
   return (

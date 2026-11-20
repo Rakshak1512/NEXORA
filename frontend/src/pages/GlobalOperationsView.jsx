@@ -5,9 +5,9 @@ import Badge from '../components/common/Badge';
 
 const GlobalOperationsView = () => {
   const regions = [
-    { name: 'North America (US-East)', endpoint: 'https://us-east.cicada-observe.io', latency: '14.2 ms', status: 'ACTIVE', nodes: 3, residency: 'US Data Perimeter' },
-    { name: 'Europe West (Frankfurt)', endpoint: 'https://eu-central.cicada-observe.io', latency: '38.5 ms', status: 'ACTIVE', nodes: 1, residency: 'GDPR Perimeter' },
-    { name: 'Asia Pacific (Tokyo)', endpoint: 'https://ap-northeast.cicada-observe.io', latency: '72.1 ms', status: 'ACTIVE', nodes: 0, residency: 'AP Data Perimeter' }
+    { name: 'North America (US-East)', endpoint: 'https://us-east.cynera.io', latency: '14.2 ms', status: 'ACTIVE', nodes: 3, residency: 'US Data Perimeter' },
+    { name: 'Europe West (Frankfurt)', endpoint: 'https://eu-central.cynera.io', latency: '38.5 ms', status: 'ACTIVE', nodes: 1, residency: 'GDPR Perimeter' },
+    { name: 'Asia Pacific (Tokyo)', endpoint: 'https://ap-northeast.cynera.io', latency: '72.1 ms', status: 'ACTIVE', nodes: 0, residency: 'AP Data Perimeter' }
   ];
 
   return (

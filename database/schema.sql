@@ -1,5 +1,6 @@
 -- ====================================================================
--- CICADA OBSERVE: PRODUCTION DATABASE SCHEMA (Supabase PostgreSQL)
+-- CYNERA: PRODUCTION DATABASE SCHEMA (Supabase PostgreSQL)
+-- Cyber Network Evaluation and Risk Analytics
 -- Two-Tier Architecture: Only Approved Metadata & Derived Summaries
 -- Raw logs, secrets, and raw credentials are NEVER stored.
 -- ====================================================================

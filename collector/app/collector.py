@@ -78,7 +78,7 @@ class LocalCollectorEngine:
         local_raw_sample = {
             **infra,
             **sec,
-            "raw_db_connection": "postgres://cicada_admin:SuperSecretPassword123!@10.0.1.25:5432/core_db",
+            "raw_db_connection": "postgres://cynera_admin:SuperSecretPassword123!@10.0.1.25:5432/core_db",
             "internal_jwt_token": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.fake_token_example",
             "aws_collector_key": "AKIAIOSFODNN7EXAMPLE",
             "admin_contact_email": "ops-lead@internal-corp.local",

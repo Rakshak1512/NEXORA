@@ -5,8 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 
 const Login = () => {
-  const [email, setEmail] = useState('admin@cicada.io');
-  const [password, setPassword] = useState('Cicada2026!Secure');
+  const [email, setEmail] = useState('admin@cynera.io');
+  const [password, setPassword] = useState('Cynera2026!Secure');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -38,7 +38,7 @@ const Login = () => {
             </div>
           </Link>
           <h2 className="text-2xl font-bold text-slate-100">Welcome Back</h2>
-          <p className="text-xs text-slate-400 mt-1">Sign in to your CICADA OBSERVE operational dashboard</p>
+          <p className="text-xs text-slate-400 mt-1">Sign in to your CYNERA operational dashboard</p>
         </div>
 
         {error && (
@@ -60,7 +60,7 @@ const Login = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@cicada.io"
+                placeholder="admin@cynera.io"
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#070C14] border border-[#1A2740] text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
               />
             </div>
@@ -109,8 +109,8 @@ const Login = () => {
         {/* Demo credentials hint */}
         <div className="mt-4 p-3 rounded-lg bg-[#070C14]/60 border border-[#1A2740] text-[11px] text-slate-400 font-mono">
           <p className="font-semibold text-cyan-400">Pre-configured Demo Credentials:</p>
-          <p className="mt-0.5">admin@cicada.io / Cicada2026!Secure</p>
-          <p className="text-[10px] text-slate-500">Super Administrator (Full Access)</p>
+          <p className="mt-0.5">admin@cynera.io / Cynera2026!Secure</p>
+          <p className="text-[10px] text-slate-500">Super Administrator (admin@cicada.io also supported)</p>
         </div>
       </div>
     </div>

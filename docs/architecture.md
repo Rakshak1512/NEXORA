@@ -1,6 +1,8 @@
-# CICADA OBSERVE — Two-Tier System Architecture
+# CYNERA — Two-Tier System Architecture
+## Cyber Network Evaluation and Risk Analytics
 
-CICADA OBSERVE delivers a privacy-first, enterprise-grade AIOps observability platform structured around an uncompromised Two-Tier Architecture.
+CYNERA delivers a privacy-first, enterprise-grade AIOps observability platform structured around an uncompromised Two-Tier Architecture.
+See More. Secure More.
 
 ```
 +-------------------------------------------------------------------------+

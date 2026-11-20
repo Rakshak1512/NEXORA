@@ -1,5 +1,6 @@
 -- ====================================================================
--- CICADA OBSERVE: REALISTIC SEED DATA (Simulated & Initial Setup)
+-- CYNERA: REALISTIC SEED DATA (Simulated & Initial Setup)
+-- Cyber Network Evaluation and Risk Analytics
 -- Clearly marked as realistic operational test data.
 -- ====================================================================
 
@@ -17,11 +18,11 @@ VALUES
     ('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000001', 'Europe West Operations (Frankfurt)', 'eu-prod-frankfurt', 'eu-central-1')
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Default Users (Password: 'Cicada2026!Secure')
--- Bcrypt hash for 'Cicada2026!Secure'
--- $2b$12$ljZt1mK4gL1xZqB/97QnZ.LhY09O9e0x4KjR7B98e5T4H3kG6oXWy
+-- 3. Default Users (Password: 'Cynera2026!Secure' & 'Cicada2026!Secure')
 INSERT INTO profiles (id, email, password_hash, full_name, role, organization_id, tenant_id)
 VALUES 
+    ('33333333-3333-3333-3333-333333333333', 'admin@cynera.io', '$2b$12$tO3O22p6W3oNvhZ92Psh6u1u7Jv/QzO2U0jE18Kz/Y7PzJ0p6QzOy', 'Alex Vance', 'Super Administrator', '00000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111'),
+    ('33333333-3333-3333-3333-333333333334', 'operator@cynera.io', '$2b$12$tO3O22p6W3oNvhZ92Psh6u1u7Jv/QzO2U0jE18Kz/Y7PzJ0p6QzOy', 'Sarah Chen', 'Operator', '00000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111'),
     ('33333333-3333-3333-3333-333333333331', 'admin@cicada.io', '$2b$12$tO3O22p6W3oNvhZ92Psh6u1u7Jv/QzO2U0jE18Kz/Y7PzJ0p6QzOy', 'Alex Vance', 'Super Administrator', '00000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111'),
     ('33333333-3333-3333-3333-333333333332', 'operator@cicada.io', '$2b$12$tO3O22p6W3oNvhZ92Psh6u1u7Jv/QzO2U0jE18Kz/Y7PzJ0p6QzOy', 'Sarah Chen', 'Operator', '00000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111')
 ON CONFLICT (id) DO NOTHING;

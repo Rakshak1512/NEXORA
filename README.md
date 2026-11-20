@@ -1,14 +1,16 @@
-# CICADA OBSERVE
-## Secure AI-Powered Enterprise Observability and Autonomous Incident Intelligence Platform
+# CYNERA
+## Cyber Network Evaluation and Risk Analytics
+### AI-Powered Secure Infrastructure Observability Platform
 
-> **Official CICADA 2026 Hackathon Complete Production Solution**  
+> **See More. Secure More.**  
+> *Intelligent Visibility. Privacy-First Monitoring. Actionable Insights.*  
 > GitHub Repository: [https://github.com/Rakshak1512/NEXORA.git](https://github.com/Rakshak1512/NEXORA.git)
 
 ---
 
 ### Table of Contents
 1. [Project Overview & Core Principles](#1-project-overview--core-principles)
-2. [CICADA OBSERVE Architecture](#2-cicada-observe-architecture)
+2. [CYNERA Architecture](#2-cynera-architecture)
 3. [Two-Tier Architecture: Local Collector & Central SaaS](#3-two-tier-architecture-local-collector--central-saas)
 4. [Project Structure](#4-project-structure)
 5. [Technology Stack](#5-technology-stack)
@@ -28,7 +30,7 @@
 
 ### 1. Project Overview & Core Principles
 
-**CICADA OBSERVE** is an end-to-end secure observability and autonomous incident intelligence platform built to resolve the *Observability Paradox*: enterprises need centralized visibility and AI intelligence, but cannot afford to ship raw logs, passwords, API keys, or customer PII to third-party SaaS providers.
+**CYNERA** (Cyber Network Evaluation and Risk Analytics) is an end-to-end secure observability and autonomous incident intelligence platform built to resolve the *Observability Paradox*: enterprises need centralized visibility and AI intelligence, but cannot afford to ship raw logs, passwords, API keys, or customer PII to third-party SaaS providers.
 
 #### Core Principles:
 - **Local-First Data Security**: Raw logs, database query texts, connection strings, and credentials never cross the local customer perimeter.
@@ -40,7 +42,7 @@
 
 ---
 
-### 2. CICADA OBSERVE Architecture
+### 2. CYNERA Architecture
 
 ```
 +-------------------------------------------------------------------------+
@@ -270,7 +272,7 @@ VITE_API_URL=http://127.0.0.1:8000
 #### B. Backend (`backend/.env`)
 Contains the frontend URL and backend-specific settings:
 ```env
-APP_NAME=CICADA_OBSERVE
+APP_NAME=CYNERA
 APP_ENV=development
 DEBUG=true
 
@@ -279,7 +281,7 @@ FRONTEND_URL=http://localhost:3000
 
 DATABASE_URL=sqlite:///./cicada_saas.db
 
-JWT_SECRET_KEY=cicada-2026-super-secret-jwt-key-98127398127
+JWT_SECRET_KEY=cynera-2026-super-secret-jwt-key-98127398127
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
@@ -330,8 +332,8 @@ To connect live Supabase:
 5. Restart the backend.
 
 #### Pre-Configured Demo Credentials:
-- **Super Administrator**: `admin@cicada.io` / `Cicada2026!Secure`
-- **Operator**: `operator@cicada.io` / `Cicada2026!Secure`
+- **Super Administrator**: `admin@cynera.io` / `Cynera2026!Secure` (or `admin@cicada.io` / `Cicada2026!Secure`)
+- **Operator**: `operator@cynera.io` / `Cynera2026!Secure` (or `operator@cicada.io` / `Cicada2026!Secure`)
 
 ---
 

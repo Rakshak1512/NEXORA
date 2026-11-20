@@ -58,27 +58,47 @@ def seed_database_if_empty():
             )
             db.add_all([t1, t2])
 
-            # 3. Default Users (Password: 'Cicada2026!Secure')
-            pw_hash = get_password_hash("Cicada2026!Secure")
+            # 3. Default Users
+            pw_hash_cynera = get_password_hash("Cynera2026!Secure")
+            pw_hash_cicada = get_password_hash("Cicada2026!Secure")
             u1 = Profile(
-                id="33333333-3333-3333-3333-333333333331",
-                email="admin@cicada.io",
-                password_hash=pw_hash,
+                id="33333333-3333-3333-3333-333333333333",
+                email="admin@cynera.io",
+                password_hash=pw_hash_cynera,
                 full_name="Alex Vance",
                 role="Super Administrator",
                 organization_id=org.id,
                 tenant_id=t1.id
             )
             u2 = Profile(
-                id="33333333-3333-3333-3333-333333333332",
-                email="operator@cicada.io",
-                password_hash=pw_hash,
+                id="33333333-3333-3333-3333-333333333334",
+                email="operator@cynera.io",
+                password_hash=pw_hash_cynera,
                 full_name="Sarah Chen",
                 role="Operator",
                 organization_id=org.id,
                 tenant_id=t1.id
             )
-            db.add_all([u1, u2])
+            # Backward-compatible accounts
+            u_compat1 = Profile(
+                id="33333333-3333-3333-3333-333333333331",
+                email="admin@cicada.io",
+                password_hash=pw_hash_cicada,
+                full_name="Alex Vance",
+                role="Super Administrator",
+                organization_id=org.id,
+                tenant_id=t1.id
+            )
+            u_compat2 = Profile(
+                id="33333333-3333-3333-3333-333333333332",
+                email="operator@cicada.io",
+                password_hash=pw_hash_cicada,
+                full_name="Sarah Chen",
+                role="Operator",
+                organization_id=org.id,
+                tenant_id=t1.id
+            )
+            db.add_all([u1, u2, u_compat1, u_compat2])
 
             # 4. Collectors
             now_dt = datetime.datetime.now(datetime.timezone.utc)
@@ -237,7 +257,36 @@ def seed_database_if_empty():
                 db.add_all([im, nm])
 
             db.commit()
-            print("[Database] Seed complete. Default login: admin@cicada.io / Cicada2026!Secure")
+            print("[Database] Seed complete. Default login: admin@cynera.io / Cynera2026!Secure (admin@cicada.io also active)")
+        else:
+            # Ensure CYNERA default users exist in pre-existing DB
+            cynera_admin = db.query(Profile).filter(Profile.email == "admin@cynera.io").first()
+            if not cynera_admin:
+                org = db.query(Organization).first()
+                tenant = db.query(Tenant).first()
+                if org and tenant:
+                    pw_hash_cynera = get_password_hash("Cynera2026!Secure")
+                    u_cynera1 = Profile(
+                        id="33333333-3333-3333-3333-333333333333",
+                        email="admin@cynera.io",
+                        password_hash=pw_hash_cynera,
+                        full_name="Alex Vance",
+                        role="Super Administrator",
+                        organization_id=org.id,
+                        tenant_id=tenant.id
+                    )
+                    u_cynera2 = Profile(
+                        id="33333333-3333-3333-3333-333333333334",
+                        email="operator@cynera.io",
+                        password_hash=pw_hash_cynera,
+                        full_name="Sarah Chen",
+                        role="Operator",
+                        organization_id=org.id,
+                        tenant_id=tenant.id
+                    )
+                    db.add_all([u_cynera1, u_cynera2])
+                    db.commit()
+                    print("[Database] CYNERA credentials provisioned: admin@cynera.io / Cynera2026!Secure")
     finally:
         db.close()
 
@@ -247,8 +296,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="CICADA OBSERVE — Secure AIOps Platform",
-    description="Tier 2 Central SaaS Platform for Enterprise Observability & Autonomous Incident Intelligence",
+    title="CYNERA — Cyber Network Evaluation and Risk Analytics",
+    description="AI-Powered Secure Infrastructure Observability Platform",
     version="1.4.2",
     lifespan=lifespan
 )

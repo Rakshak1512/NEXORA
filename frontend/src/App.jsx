@@ -42,7 +42,7 @@ const ProtectedRoute = ({ children }) => {
   }
   // If not logged in, we still allow demo browsing or redirect to login
   // In enterprise demo mode, allow access if token exists or redirect
-  const token = localStorage.getItem('cicada_token');
+  const token = localStorage.getItem('cynera_token') || localStorage.getItem('cicada_token');
   if (!user && !token) {
     return <Navigate to="/login" replace />;
   }
