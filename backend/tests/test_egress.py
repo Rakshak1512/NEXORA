@@ -1,6 +1,7 @@
 from app.config import settings
 import pytest
 import uuid
+from auth_helpers import login_as_platform_admin
 
 def test_egress_proof_recording(client):
     headers = {
@@ -32,7 +33,9 @@ def test_egress_proof_recording(client):
     assert res.json()["allowlist_validated"] is True
 
     # Retrieve from list
-    list_res = client.get("/api/egress/records")
+    user_token = login_as_platform_admin(client)
+    user_headers = {"Authorization": f"Bearer {user_token}"}
+    list_res = client.get("/api/egress/records", headers=user_headers)
     assert list_res.status_code == 200
     records = list_res.json()
     assert any(r["payload_id"] == p_id for r in records)
