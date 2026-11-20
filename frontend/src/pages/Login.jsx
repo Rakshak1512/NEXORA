@@ -136,6 +136,28 @@ const Login = () => {
           </Button>
         </form>
 
+        {import.meta.env.DEV && (
+          <div className="mt-5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">Test users</p>
+              <span className="text-[10px] text-slate-500">Development only</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button type="button" onClick={() => { setAccountType('admin'); setEmail('admin@cynera.io'); setPassword('Cynera2026!Secure'); setError(''); }} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
+                <span className="block text-xs font-semibold text-slate-100">Platform Admin</span>
+                <span className="block text-[11px] text-slate-400 mt-1">admin@cynera.io</span>
+                <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
+              </button>
+              <button type="button" onClick={() => { setAccountType('owner'); setEmail('operator@cynera.io'); setPassword('Cynera2026!Secure'); setError(''); }} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
+                <span className="block text-xs font-semibold text-slate-100">Workspace User</span>
+                <span className="block text-[11px] text-slate-400 mt-1">operator@cynera.io</span>
+                <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2">Password for both: Cynera2026!Secure</p>
+          </div>
+        )}
+
         <div className="mt-6 text-center text-xs text-slate-400">
           Need a workspace for your company?{' '}
           <Link to="/register" className="text-cyan-400 font-semibold hover:underline">
