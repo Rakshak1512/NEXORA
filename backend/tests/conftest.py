@@ -5,6 +5,7 @@ os.environ.setdefault("OTP_HASH_SECRET", "test-only-otp-hmac-secret-32-bytes-min
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("TESTING", "true")
+os.environ.setdefault("COLLECTOR_CREDENTIAL", "test-only-collector-credential")
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
