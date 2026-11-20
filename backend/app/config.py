@@ -11,9 +11,9 @@ class Settings(BaseSettings):
     model_config = ConfigDict(env_file=(_backend_env, ".env"), extra="ignore")
 
     APP_NAME: str = "CYNERA"
-    APP_ENV: str = "development"
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
+    APP_ENV: str = "production"
+    ENVIRONMENT: str = "production"
+    DEBUG: bool = False
 
     # Routing
     BACKEND_URL: str = "http://127.0.0.1:8000"
@@ -40,13 +40,13 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ALGORITHM: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    COLLECTOR_AUTH_SECRET: str = "secret-collector-token-01"
+    COLLECTOR_AUTH_SECRET: str = ""
 
     # Collector Reference Config
     COLLECTOR_ID: str = "col-prod-core-01"
     COLLECTOR_NAME: str = "Primary Cluster Collector 01"
     TENANT_ID: str = "11111111-1111-1111-1111-111111111111"
-    COLLECTOR_CREDENTIAL: str = "secret-collector-token-01"
+    COLLECTOR_CREDENTIAL: str = ""
     COLLECTION_INTERVAL_SECONDS: int = 5
     HEARTBEAT_INTERVAL_SECONDS: int = 15
     LOCAL_QUEUE_PATH: str = "data/local_buffer.db"
