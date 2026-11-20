@@ -500,7 +500,14 @@ def trigger_immediate_device_check(
     )
     db.add(check_rec)
 
-    # IncidentAlert requires a real collector foreign key. Reuse a registered collector\n    # belonging to this tenant; do not fabricate a collector identity.\n    alert_collector = db.query(Collector).filter(\n        Collector.tenant_id == current_user.tenant_id\n    ).order_by(Collector.created_at.asc()).first()\n\n    # AIOps Alert Generation if unreachable or packet loss high\n    if alert_collector and probe["status"] == "UNREACHABLE":
+    # IncidentAlert requires a real collector foreign key. Reuse a registered collector
+    # belonging to this tenant; do not fabricate a collector identity.
+    alert_collector = db.query(Collector).filter(
+        Collector.tenant_id == current_user.tenant_id
+    ).order_by(Collector.created_at.asc()).first()
+
+    # AIOps Alert Generation if unreachable or packet loss high
+    if alert_collector and probe["status"] == "UNREACHABLE":
         alert = IncidentAlert(
             tenant_id=current_user.tenant_id,
             collector_id=alert_collector.id,
