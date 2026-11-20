@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from ..database import get_db
 from ..models.models import (
     NetworkDevice, NetworkCheckResult, IncidentAlert, Incident, 
-    SystemAuditLog, Tenant, Profile
+    SystemAuditLog, Tenant, Profile, Collector
 )
 from ..auth.deps import get_current_user
 from ..websocket.manager import ws_manager
@@ -500,11 +500,10 @@ def trigger_immediate_device_check(
     )
     db.add(check_rec)
 
-    # AIOps Alert Generation if unreachable or packet loss high
-    if probe["status"] == "UNREACHABLE":
+    # IncidentAlert requires a real collector foreign key. Reuse a registered collector\n    # belonging to this tenant; do not fabricate a collector identity.\n    alert_collector = db.query(Collector).filter(\n        Collector.tenant_id == current_user.tenant_id\n    ).order_by(Collector.created_at.asc()).first()\n\n    # AIOps Alert Generation if unreachable or packet loss high\n    if alert_collector and probe["status"] == "UNREACHABLE":
         alert = IncidentAlert(
             tenant_id=current_user.tenant_id,
-            collector_id="col-network-guard",
+            collector_id=alert_collector.id,
             alert_type="NETWORK_DEVICE_UNREACHABLE",
             severity="CRITICAL",
             metric_name="packet_loss_pct",
@@ -513,7 +512,7 @@ def trigger_immediate_device_check(
             message=f"Network device '{device.name}' ({device.ip_address}) is UNREACHABLE. Ping and TCP connection timed out."
         )
         db.add(alert)
-    elif probe["status"] == "DEGRADED":
+    elif alert_collector and probe["status"] == "DEGRADED":
         alert = IncidentAlert(
             tenant_id=current_user.tenant_id,
             collector_id="col-network-guard",
