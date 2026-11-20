@@ -1,3 +1,4 @@
+from app.config import settings
 import time
 import pytest
 from fastapi.testclient import TestClient
@@ -28,7 +29,7 @@ def test_full_system_lifecycle_e2e():
 
     # 2. Collector Heartbeat
     col_headers = {
-        "Authorization": "Bearer secret-collector-token-01",
+        "Authorization": f"Bearer {settings.COLLECTOR_CREDENTIAL}",
         "X-Collector-ID": "col-prod-core-01",
         "X-Tenant-ID": "11111111-1111-1111-1111-111111111111"
     }
