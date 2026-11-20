@@ -10,14 +10,6 @@
     --text-primary: #F1F5F9;
     --text-secondary: #94A3B8;
   }
-
-  .light {
-    --bg-primary: #F8FAFC;
-    --bg-card: #FFFFFF;
-    --border-color: #E2E8F0;
-    --text-primary: #0F172A;
-    --text-secondary: #64748B;
-  }
 }
 
 body {
@@ -27,17 +19,12 @@ body {
   overflow-x: hidden;
 }
 
-/* Custom Glassmorphism */
+/* Custom Glassmorphism - Permanent Dark */
 .glass-panel {
   background: rgba(13, 21, 36, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(26, 39, 64, 0.8);
-}
-
-.light .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 /* Custom glow */
@@ -64,4 +51,3 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #00E5FF;
 }
-

@@ -1,15 +1,13 @@
 import React from 'react';
 import { 
-  Bell, Sun, Moon, Search, LogOut, ShieldCheck, 
+  Bell, Search, LogOut, ShieldCheck, 
   Menu, User, Server
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 
 const Navbar = ({ onMenuClick }) => {
   const { user, logout } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
   const { isConnected } = useWebSocket();
 
   return (
@@ -37,15 +35,6 @@ const Navbar = ({ onMenuClick }) => {
           <span className="text-slate-400 hidden sm:inline">{isConnected ? 'LIVE WS CONNECTED' : 'WS RECONNECTING'}</span>
         </div>
 
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          title="Toggle Light/Dark Theme"
-          className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition cursor-pointer"
-        >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-cyan-400" />}
-        </button>
-
         {/* User profile dropdown / logout */}
         <div className="flex items-center gap-3 pl-3 border-l border-[#1A2740]">
           <div className="text-right hidden sm:block">
@@ -69,4 +58,3 @@ const Navbar = ({ onMenuClick }) => {
 };
 
 export default Navbar;
-
