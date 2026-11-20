@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.models import (
     Profile, Organization, Tenant, OrganizationMembership,
-    Collector, Notification, utc_now
+    Collector, Notification, MonitoredWebsite, utc_now
 )
 from ..schemas.schemas import (
     UserLogin, UserRegister, OrganizationRegisterRequest,
@@ -20,6 +20,7 @@ from ..auth.otp import create_otp_challenge, verify_otp_challenge, resend_otp_ch
 from ..services.email_service import (
     send_signup_otp, send_login_2fa_otp, send_password_reset_otp
 )
+from ..services.ssrf_guard import validate_public_url
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -41,21 +42,38 @@ def register_organization(data: OrganizationRegisterRequest, db: Session = Depen
             detail="An account with this email address already exists. Please log in instead."
         )
 
-    # 2. Validate password strength
+    # 2. Validate password strength & confirmation
     if len(data.password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters long."
         )
 
-    # 3. Derive or validate slug
+    if data.confirm_password and data.confirm_password != data.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password confirmation does not match password."
+        )
+
+    # 3. Validate website URL if provided (SSRF Protection)
+    norm_website_url = None
+    if data.website_url and data.website_url.strip():
+        is_safe, ssrf_err, norm_url, _ = validate_public_url(data.website_url.strip())
+        if not is_safe:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid Website URL: {ssrf_err}"
+            )
+        norm_website_url = norm_url
+
+    # 4. Derive or validate slug
     slug = data.org_slug.strip().lower() if data.org_slug else slugify(data.organization_name)
     existing_org = db.query(Organization).filter(Organization.slug == slug).first()
     if existing_org:
         # Append short random token if conflict
         slug = f"{slug}-{secrets.token_hex(2)}"
 
-    # 4. Hash password securely for pending storage
+    # 5. Hash password securely for pending storage
     pw_hash = get_password_hash(data.password)
 
     payload = {
@@ -63,6 +81,7 @@ def register_organization(data: OrganizationRegisterRequest, db: Session = Depen
         "email": clean_email,
         "password_hash": pw_hash,
         "organization_name": data.organization_name.strip(),
+        "website_url": norm_website_url,
         "org_slug": slug,
         "industry": data.industry,
         "org_size": data.org_size,
@@ -229,12 +248,31 @@ def verify_otp(data: OTPVerifyRequest, db: Session = Depends(get_db)):
             )
             db.add(collector)
 
-            # 6. Add welcome notification
+            # 6. Provision Initial Monitored Website if supplied during registration
+            website_url = payload.get("website_url")
+            if website_url:
+                site = MonitoredWebsite(
+                    organization_id=org.id,
+                    created_by=user.id,
+                    name=f"{org.name} Production Website",
+                    url=website_url,
+                    description="Primary corporate web property registered during onboarding",
+                    is_verified=True,
+                    verification_method="dns_txt",
+                    verification_token=f"cynera-verify-{uuid.uuid4().hex[:16]}",
+                    status="PENDING",
+                    monitoring_interval_seconds=60,
+                    is_active=True
+                )
+                db.add(site)
+                org.website = website_url
+
+            # 7. Add welcome notification
             welcome_notif = Notification(
                 organization_id=org.id,
                 user_id=user.id,
                 title="Welcome to CYNERA Observability Platform",
-                message=f"Your enterprise organization '{org.name}' has been successfully provisioned. Begin by installing the local collector on your infrastructure.",
+                message=f"Your enterprise organization '{org.name}' has been successfully provisioned with active website monitoring.",
                 type="success"
             )
             db.add(welcome_notif)

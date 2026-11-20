@@ -287,3 +287,4 @@ def get_public_widget_data(token: str, db: Session = Depends(get_db)):
         network_latency_ms=latency_val,
         last_updated_at=utc_now().isoformat()
     )
+

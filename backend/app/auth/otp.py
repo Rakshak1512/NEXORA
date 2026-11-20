@@ -146,3 +146,4 @@ def resend_otp_challenge(
         
     new_challenge, otp_code = create_otp_challenge(db, clean_email, purpose, payload)
     return True, "A new verification code has been dispatched.", otp_code, new_challenge
+

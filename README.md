@@ -10,35 +10,51 @@
 
 ### Table of Contents
 1. [Project Overview & Core Principles](#1-project-overview--core-principles)
-2. [CYNERA Architecture](#2-cynera-architecture)
-3. [Two-Tier Architecture: Local Collector & Central SaaS](#3-two-tier-architecture-local-collector--central-saas)
-4. [Project Structure](#4-project-structure)
+2. [The Three CYNERA Product Pillars](#2-the-three-cynera-product-pillars)
+3. [CYNERA Architecture & Two-Tier Privacy](#3-cynera-architecture--two-tier-privacy)
+4. [Project Structure & SDKs](#4-project-structure--sdks)
 5. [Technology Stack](#5-technology-stack)
-6. [Prerequisites](#6-prerequisites)
-7. [Frontend Installation and Startup](#7-frontend-installation-and-startup)
-8. [Backend Installation and Startup](#8-backend-installation-and-startup)
-9. [Collector Installation and Startup](#9-collector-installation-and-startup)
-10. [Environment Variable Architecture](#10-environment-variable-architecture)
-11. [Database Setup & Supabase Integration](#11-database-setup--supabase-integration)
-12. [API Documentation](#12-api-documentation)
-13. [Testing Instructions & Results](#13-testing-instructions--results)
-14. [Future Deployment Architecture (Exactly TWO Hosted Services)](#14-future-deployment-architecture-exactly-two-hosted-services)
-15. [Egress Proof Center & Security Instructions](#15-egress-proof-center--security-instructions)
-16. [Scenario Control Center (13 Scenarios)](#16-scenario-control-center-13-scenarios)
+6. [Prerequisites & Local Startup](#6-prerequisites--local-startup)
+7. [Environment Variable Architecture](#7-environment-variable-architecture)
+8. [Database Setup, SQLite Viewer & Supabase Migration](#8-database-setup-sqlite-viewer--supabase-migration)
+9. [API Documentation & Webhook Signatures](#9-api-documentation--webhook-signatures)
+10. [Testing Instructions & Results](#10-testing-instructions--results)
+11. [Egress Proof Center & Privacy Protocols](#11-egress-proof-center--privacy-protocols)
+12. [Scenario Control Center (13 Scenarios)](#12-scenario-control-center-13-scenarios)
 
 ---
 
 ### 1. Project Overview & Core Principles
 
-**CYNERA** (Cyber Network Evaluation and Risk Analytics) is an end-to-end secure observability and autonomous incident intelligence platform built to resolve the *Observability Paradox*: enterprises need centralized visibility and AI intelligence, but cannot afford to ship raw logs, passwords, API keys, or customer PII to third-party SaaS providers.
+**CYNERA** (*Cyber Network Evaluation and Risk Analytics*) is an enterprise-grade, multi-tenant SaaS observability platform designed to solve the *Observability Paradox*: organizations need complete real-time visibility, automated uptime probes, and AI-powered root cause analysis, but cannot afford to expose raw logs, internal credentials, connection strings, or customer data to centralized clouds.
 
-#### Core Principles:
-- **Local-First Data Security**: Raw logs, database query texts, connection strings, and credentials never cross the local customer perimeter.
-- **Metadata-Only SaaS Communication**: The central cloud backend strictly ingests approved numerical metrics, health states, and aggregated risk summaries.
-- **Explainable Anomaly Detection**: Combines rolling statistical baselines (Z-Scores & IQR) with Scikit-learn's **Isolation Forest** on multidimensional telemetry vectors.
-- **Event Correlation & Noise Reduction**: Automatically groups related alerts on the same collector within a 90-second sliding window into unified incidents with causal explanations.
-- **Guaranteed Zero Data Loss**: Local SQLite queue (`local_buffer.db`) provides transactional persistence, exponential backoff, and idempotent ingestion.
-- **Safe Autonomous Operations**: Policy-governed human-in-the-loop remediation requiring explicit operator approval before executing container recycles or edge rate limits.
+#### The Three Core Innovations:
+- **Zero-Collector Website & Endpoint Monitoring**: Synthetic uptime, TLS certificate lifespan warnings, and DNS resolution validation running autonomically from Tier 2 without requiring agents or local software.
+- **Two-Tier Zero-Trust Privacy**: For internal servers and networks, Tier 1 collectors perform client-side secret redaction and allowlist filtering. Only mathematically approved metadata and SHA-256 egress proofs leave the perimeter.
+- **Explainable AIOps Intelligence**: Combines statistical rolling baselines with Scikit-learn's Isolation Forest and 90-second temporal signal clustering to identify actionable incidents with clear root cause explanations.
+
+---
+
+### 2. The Three CYNERA Product Pillars
+
+#### 🌐 Product A — Website & Synthetic URL Monitoring (Zero-Collector Required)
+- **Public URL & Endpoint Monitoring**: High-frequency synthetic HTTP/HTTPS health checks with customizable intervals (30s, 60s, 300s).
+- **Strict SSRF Guard**: Enforces network perimeter protection blocking loopback (`127.0.0.0/8`, `::1`), private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local IPs, and cloud instance metadata endpoints (`169.254.169.254`). Validates every resolved IP address against DNS rebinding attacks.
+- **SSL/TLS Certificate Lifespan Tracking**: Extracts certificate issuer, expiration date, handshake timing, and generates proactive warnings at 30, 14, and 0 days remaining.
+- **DNS Resolution Diagnostic**: Tracks DNS resolution latency and records resolved A/AAAA IP addresses.
+- **Domain Ownership Verification**: Supports instant development approval, DNS TXT record verification (`cynera-site-verification=<token>`), and HTTP well-known file validation.
+- **State Transition Safeguards**: Consecutive failure confirmation (retries before marking DOWN) and consecutive recovery confirmation (marking ONLINE and calculating total downtime).
+
+#### 🖥️ Product B — Full Infrastructure & Network Monitoring (Two-Tier Privacy)
+- **Tier 1 Local Collector**: Gathers host CPU, memory, disk I/O, process count, and network bandwidth locally via `psutil`.
+- **IP-Based TCP/IP Device Monitoring**: Probes routers, switches, firewalls, and servers via ICMP Ping (round-trip latency and packet loss), TCP port availability (ports 22, 80, 443, etc.), and safe SNMP queries.
+- **Egress Proof Center**: Validates that outgoing telemetry contains only approved numerical metadata with cryptographic SHA-256 payload hashes and zero leaked credentials.
+
+#### ⚡ Product C — Application Performance Monitoring (APM) & Databases
+- **Microservice APM**: Throughput (RPM), error rate percentages, and p95 latency tracking across microservices.
+- **Sanitized Exception Tracker**: Captures unhandled stack traces with automatic token, password, and credential scrubbing.
+- **Lightweight Client SDKs**: Minimal Python (`collector/sdk/cynera.py`) and Node.js (`collector/sdk/cynera.js`) libraries with fail-silent background queuing.
+- **Database Health**: Monitors connection pool saturation percentages, active connections, and query latencies for PostgreSQL and MySQL clusters.
 
 ---
 

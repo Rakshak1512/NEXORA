@@ -19,7 +19,9 @@ class OrganizationRegisterRequest(BaseModel):
     full_name: str
     email: EmailStr
     password: str
+    confirm_password: Optional[str] = None
     organization_name: str
+    website_url: Optional[str] = None
     org_slug: Optional[str] = None
     industry: Optional[str] = "Technology"
     org_size: Optional[str] = "10-50"

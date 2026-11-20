@@ -232,3 +232,4 @@ def remove_member(
     db.delete(mem)
     db.commit()
     return {"status": "removed", "message": "Member removed from organization."}
+

@@ -160,3 +160,4 @@ def test_saas_multi_tenant_registration_and_otp_flow(client):
     # Mark all read
     read_res = client.post("/api/notifications/read-all", headers=auth_headers)
     assert read_res.status_code == 200
+

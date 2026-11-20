@@ -31,6 +31,16 @@ from .api.organization import router as organization_router
 from .api.developer import router as developer_router
 from .api.reports import router as reports_router
 from .api.notifications import router as notifications_router
+from .api.websites import router as websites_router
+from .api.apm import router as apm_router
+from .api.databases import router as databases_router
+from .api.alerts import router as alerts_router
+from .api.webhooks import router as webhooks_router
+from .services.website_scheduler import website_scheduler
+from .models.models import (
+    MonitoredWebsite, WebsiteCheckResult, ApplicationService,
+    DatabaseIntegration, Alert
+)
 
 def seed_database_if_empty():
     """Initializes tables and populates with realistic enterprise seed data."""
@@ -404,13 +414,102 @@ def seed_database_if_empty():
                     theme="dark"
                 ))
                 db.commit()
+
+            # Seed demo MonitoredWebsite if empty
+            if db.query(MonitoredWebsite).filter(MonitoredWebsite.organization_id == org.id).count() == 0:
+                demo_site = MonitoredWebsite(
+                    id="web-demo-01",
+                    organization_id=org.id,
+                    name="Cynera Cloud Platform",
+                    url="https://cynera.io",
+                    status="ONLINE",
+                    is_active=True,
+                    ownership_verified=True,
+                    verification_method="instant",
+                    monitoring_interval_seconds=60,
+                    check_timeout_seconds=10,
+                    http_method="GET",
+                    expected_status_codes="200,201,301,302",
+                    follow_redirects=True,
+                    check_ssl=True,
+                    ssl_expiry_warning_days=30,
+                    uptime_percentage_24h=99.98,
+                    uptime_percentage_30d=99.95,
+                    last_response_time_ms=78.5,
+                    last_status_code=200,
+                    ssl_issuer="Let's Encrypt Authority X3",
+                    ssl_days_remaining=74,
+                    dns_response_time_ms=18.2,
+                    dns_resolved_ips="104.21.55.2,172.67.180.11",
+                    last_checked_at=datetime.datetime.now(datetime.timezone.utc),
+                    last_status_change_at=datetime.datetime.now(datetime.timezone.utc)
+                )
+                db.add(demo_site)
+                db.commit()
+
+            # Seed demo Alert if empty
+            if db.query(Alert).filter(Alert.organization_id == org.id).count() == 0:
+                db.add(Alert(
+                    id="alt-demo-01",
+                    organization_id=org.id,
+                    title="Network Latency Anomaly Detected",
+                    message="Round-trip time on core router 192.168.1.1 spiked to 142ms (+240% above baseline).",
+                    severity="warning",
+                    source="network",
+                    entity_type="device",
+                    entity_id="dev-core-router-01",
+                    status="active",
+                    acknowledged=False
+                ))
+                db.commit()
+
+            # Seed demo APM ApplicationService if empty
+            if db.query(ApplicationService).filter(ApplicationService.organization_id == org.id).count() == 0:
+                db.add(ApplicationService(
+                    id="svc-demo-01",
+                    organization_id=org.id,
+                    name="cynera-backend-api",
+                    environment="production",
+                    framework="FastAPI / Python",
+                    language="python",
+                    sdk_version="1.0.0",
+                    status="HEALTHY",
+                    error_rate_percent=0.12,
+                    throughput_rpm=240,
+                    p95_latency_ms=45.2,
+                    last_seen_at=datetime.datetime.now(datetime.timezone.utc)
+                ))
+                db.commit()
+
+            # Seed demo DatabaseIntegration if empty
+            if db.query(DatabaseIntegration).filter(DatabaseIntegration.organization_id == org.id).count() == 0:
+                db.add(DatabaseIntegration(
+                    id="db-demo-01",
+                    organization_id=org.id,
+                    name="Primary Production PostgreSQL",
+                    db_type="postgresql",
+                    host="pg-cluster.internal",
+                    port=5432,
+                    database_name="cynera_prod",
+                    username="cynera_ro",
+                    status="HEALTHY",
+                    connection_saturation_percent=24.5,
+                    active_connections=18,
+                    max_connections=100,
+                    avg_query_latency_ms=8.4,
+                    slow_queries_count_24h=2,
+                    last_checked_at=datetime.datetime.now(datetime.timezone.utc)
+                ))
+                db.commit()
     finally:
         db.close()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed_database_if_empty()
+    website_scheduler.start()
     yield
+    website_scheduler.stop()
 
 app = FastAPI(
     title="CYNERA — Cyber Network Evaluation and Risk Analytics",
@@ -443,6 +542,11 @@ app.include_router(organization_router, prefix="/api")
 app.include_router(developer_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
+app.include_router(websites_router, prefix="/api")
+app.include_router(apm_router, prefix="/api")
+app.include_router(databases_router, prefix="/api")
+app.include_router(alerts_router, prefix="/api")
+app.include_router(webhooks_router, prefix="/api")
 
 # WebSocket Endpoint
 @app.websocket("/ws")

@@ -132,6 +132,185 @@ CREATE TABLE IF NOT EXISTS report_records (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ====================================================================
+-- WEBSITE MONITORING (PRODUCT A - Zero Collector Required)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS monitored_websites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    url VARCHAR(500) NOT NULL,
+    description TEXT,
+    is_verified BOOLEAN DEFAULT FALSE,
+    verification_method VARCHAR(50) DEFAULT 'dns_txt',
+    verification_token VARCHAR(100) NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    monitoring_interval_seconds INT DEFAULT 60,
+    expected_status_codes JSONB DEFAULT '[200, 201, 204, 301, 302]'::jsonb,
+    timeout_seconds INT DEFAULT 10,
+    is_active BOOLEAN DEFAULT TRUE,
+    consecutive_failures INT DEFAULT 0,
+    consecutive_successes INT DEFAULT 0,
+    last_checked_at TIMESTAMPTZ,
+    last_status_code INT,
+    last_response_time_ms NUMERIC(10,2) DEFAULT 0.0,
+    uptime_percentage_24h NUMERIC(5,2) DEFAULT 100.0,
+    ssl_status VARCHAR(50) DEFAULT 'VALID',
+    ssl_issuer VARCHAR(255),
+    ssl_expiry_date TIMESTAMPTZ,
+    ssl_days_remaining INT,
+    dns_status VARCHAR(50) DEFAULT 'HEALTHY',
+    dns_resolved_ips JSONB DEFAULT '[]'::jsonb,
+    dns_lookup_time_ms NUMERIC(10,2) DEFAULT 0.0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS website_check_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    website_id UUID NOT NULL REFERENCES monitored_websites(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL,
+    status_code INT,
+    response_time_ms NUMERIC(10,2) DEFAULT 0.0,
+    dns_lookup_time_ms NUMERIC(10,2) DEFAULT 0.0,
+    tls_handshake_time_ms NUMERIC(10,2) DEFAULT 0.0,
+    dns_resolved_ips JSONB DEFAULT '[]'::jsonb,
+    ssl_valid BOOLEAN DEFAULT TRUE,
+    ssl_days_remaining INT,
+    error_message TEXT,
+    check_location VARCHAR(50) DEFAULT 'SaaS Primary Cloud',
+    recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS website_endpoints (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    website_id UUID NOT NULL REFERENCES monitored_websites(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    endpoint_url VARCHAR(500) NOT NULL,
+    method VARCHAR(10) DEFAULT 'GET',
+    expected_status_code INT DEFAULT 200,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_status VARCHAR(50) DEFAULT 'ONLINE',
+    last_latency_ms NUMERIC(10,2) DEFAULT 0.0,
+    last_checked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ====================================================================
+-- APPLICATION PERFORMANCE MONITORING (APM)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS application_services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    language VARCHAR(50) DEFAULT 'Python',
+    environment VARCHAR(50) DEFAULT 'production',
+    version VARCHAR(50) DEFAULT '1.0.0',
+    api_key_id UUID,
+    status VARCHAR(50) DEFAULT 'HEALTHY',
+    last_heartbeat_at TIMESTAMPTZ,
+    avg_latency_ms NUMERIC(10,2) DEFAULT 0.0,
+    error_rate_pct NUMERIC(5,2) DEFAULT 0.0,
+    request_count_24h INT DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS application_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_id UUID NOT NULL REFERENCES application_services(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    event_type VARCHAR(50) DEFAULT 'error',
+    name VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    stack_trace TEXT,
+    endpoint VARCHAR(255),
+    duration_ms NUMERIC(10,2) DEFAULT 0.0,
+    status_code INT,
+    recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ====================================================================
+-- DATABASE MONITORING (PostgreSQL / MySQL Integrations)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS database_integrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    db_type VARCHAR(50) DEFAULT 'PostgreSQL',
+    host VARCHAR(255) NOT NULL,
+    port INT DEFAULT 5432,
+    database_name VARCHAR(100) DEFAULT 'postgres',
+    username_masked VARCHAR(100) DEFAULT 'cynera_monitor_ro',
+    status VARCHAR(50) DEFAULT 'HEALTHY',
+    avg_query_latency_ms NUMERIC(10,2) DEFAULT 0.0,
+    active_connections INT DEFAULT 0,
+    max_connections INT DEFAULT 100,
+    pool_saturation_pct NUMERIC(5,2) DEFAULT 0.0,
+    slow_queries_count INT DEFAULT 0,
+    last_checked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS database_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    integration_id UUID NOT NULL REFERENCES database_integrations(id) ON DELETE CASCADE,
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    connection_status VARCHAR(50) DEFAULT 'CONNECTED',
+    latency_ms NUMERIC(10,2) DEFAULT 0.0,
+    active_connections INT DEFAULT 0,
+    slow_query_count INT DEFAULT 0,
+    cache_hit_ratio_pct NUMERIC(5,2) DEFAULT 99.2,
+    recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ====================================================================
+-- ALERT CENTER & WEBHOOKS
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    severity VARCHAR(20) DEFAULT 'HIGH',
+    category VARCHAR(50) DEFAULT 'website',
+    resource_name VARCHAR(255) NOT NULL,
+    resource_id VARCHAR(100),
+    evidence TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    incident_id UUID,
+    notification_sent BOOLEAN DEFAULT FALSE,
+    detected_at TIMESTAMPTZ DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS webhooks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    destination_url VARCHAR(500) NOT NULL,
+    secret_hash VARCHAR(255) NOT NULL,
+    secret_preview VARCHAR(30) NOT NULL,
+    events JSONB DEFAULT '["alert.created", "incident.created", "website.down", "website.recovered"]'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_delivery_status VARCHAR(50),
+    last_delivery_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    webhook_id UUID NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+    event_type VARCHAR(100) NOT NULL,
+    payload_json TEXT NOT NULL,
+    response_status_code INT,
+    response_body_preview TEXT,
+    execution_time_ms NUMERIC(10,2) DEFAULT 0.0,
+    status VARCHAR(50) DEFAULT 'SUCCESS',
+    delivered_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 4. COLLECTORS & REGISTRATIONS
 CREATE TYPE collector_status_enum AS ENUM ('online', 'offline', 'degraded', 'pending');
 

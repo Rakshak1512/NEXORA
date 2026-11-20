@@ -119,3 +119,4 @@ def generate_report(
         summary_data=summary_data,
         created_at=record.created_at
     )
+

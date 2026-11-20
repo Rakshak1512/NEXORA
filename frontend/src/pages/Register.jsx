@@ -8,6 +8,8 @@ const Register = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [orgName, setOrgName] = useState('');
   const [industry, setIndustry] = useState('Technology');
   const [orgSize, setOrgSize] = useState('10-50');
@@ -42,6 +44,10 @@ const Register = () => {
       setError('Password must be at least 8 characters long.');
       return;
     }
+    if (confirmPassword && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
     if (!agreeTerms) {
       setError('Please agree to the CYNERA Terms of Service & Privacy Protocol.');
       return;
@@ -53,7 +59,9 @@ const Register = () => {
         full_name: fullName,
         email,
         password,
+        confirm_password: confirmPassword || password,
         organization_name: orgName,
+        website_url: websiteUrl || undefined,
         industry,
         org_size: orgSize,
         country,
@@ -163,6 +171,7 @@ const Register = () => {
                 </div>
               </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Password <span className="text-rose-400">*</span>
@@ -196,6 +205,28 @@ const Register = () => {
                   </div>
                 )}
               </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Confirm Password <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter password"
+                    className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0B1322] border border-[#1A2740] text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
+                  />
+                </div>
+                {confirmPassword && password !== confirmPassword && (
+                  <span className="text-[10px] text-rose-400 font-medium mt-1 inline-block">
+                    Passwords do not match
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -225,6 +256,23 @@ const Register = () => {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Primary Website URL (Optional for Auto-Monitor)
+                </label>
+                <div className="relative">
+                  <Globe className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0B1322] border border-[#1A2740] text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
+                  />
+                </div>
+              </div>
+            </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">

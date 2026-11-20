@@ -173,3 +173,4 @@ def send_member_invite(to_email: str, invited_by_name: str, organization_name: s
         body_html=body
     )
     return send_email(to_email, subject, html)
+

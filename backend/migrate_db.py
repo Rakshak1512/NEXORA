@@ -36,3 +36,4 @@ add_col_if_missing('organizations', 'updated_at', 'DATETIME')
 conn.commit()
 conn.close()
 print("Migration completed successfully!")
+

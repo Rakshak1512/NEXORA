@@ -4,20 +4,26 @@ import {
   LayoutDashboard, Server, Cpu, Network, Shield, 
   FileCheck2, BrainCircuit, AlertOctagon, Sparkles, 
   CheckSquare, Globe, BarChart3, History, Sliders, 
-  Settings, X, ShieldAlert, Building2, Key, FileText
+  Settings, X, ShieldAlert, Building2, Key, FileText,
+  Layers, Database, BellRing, Webhook
 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { path: '/collectors', label: 'Collectors', icon: Server },
+  { path: '/websites', label: 'Websites & URLs', icon: Globe },
+  { path: '/alerts', label: 'Alert Center', icon: BellRing },
   { path: '/infrastructure', label: 'Infrastructure', icon: Cpu },
   { path: '/network', label: 'Network Monitoring', icon: Network },
+  { path: '/applications', label: 'APM & Services', icon: Layers },
+  { path: '/databases', label: 'Databases', icon: Database },
+  { path: '/collectors', label: 'Collectors', icon: Server },
   { path: '/security', label: 'Security Monitoring', icon: Shield },
   { path: '/egress-proof', label: 'Egress Proof Center', icon: FileCheck2, highlight: true },
   { path: '/aiops', label: 'AIOps Intelligence', icon: BrainCircuit },
   { path: '/incidents', label: 'Incidents', icon: AlertOctagon },
   { path: '/recommendations', label: 'AI Recommendations', icon: Sparkles },
   { path: '/approvals', label: 'Approval Center', icon: CheckSquare },
+  { path: '/webhooks', label: 'Webhooks & HMAC', icon: Webhook },
   { path: '/global', label: 'Global Operations', icon: Globe },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/reports', label: 'Reports & Audits', icon: FileText },

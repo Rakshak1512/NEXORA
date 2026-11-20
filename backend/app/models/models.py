@@ -12,6 +12,9 @@ def gen_uuid():
 def utc_now():
     return datetime.datetime.now(datetime.timezone.utc)
 
+# =====================================================================
+# 1. ORGANIZATIONS, TENANTS, PROFILES & SAAS MEMBERSHIPS
+# =====================================================================
 class Organization(Base):
     __tablename__ = "organizations"
 
@@ -33,6 +36,11 @@ class Organization(Base):
     memberships = relationship("OrganizationMembership", back_populates="organization", cascade="all, delete-orphan")
     api_keys = relationship("APIKey", back_populates="organization", cascade="all, delete-orphan")
     embed_tokens = relationship("EmbedWidgetToken", back_populates="organization", cascade="all, delete-orphan")
+    websites = relationship("MonitoredWebsite", back_populates="organization", cascade="all, delete-orphan")
+    webhooks = relationship("Webhook", back_populates="organization", cascade="all, delete-orphan")
+    app_services = relationship("ApplicationService", back_populates="organization", cascade="all, delete-orphan")
+    db_integrations = relationship("DatabaseIntegration", back_populates="organization", cascade="all, delete-orphan")
+    alerts = relationship("Alert", back_populates="organization", cascade="all, delete-orphan")
 
 class Tenant(Base):
     __tablename__ = "tenants"
@@ -155,6 +163,223 @@ class ReportRecord(Base):
     summary_json = Column(Text, default="{}")
     created_at = Column(DateTime, default=utc_now)
 
+# =====================================================================
+# 2. WEBSITE & APPLICATION MONITORING (PRODUCT A - Zero Collector Required)
+# =====================================================================
+class MonitoredWebsite(Base):
+    __tablename__ = "monitored_websites"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(String(36), ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    name = Column(String(255), nullable=False)
+    url = Column(String(500), nullable=False)
+    description = Column(Text, nullable=True)
+    is_verified = Column(Boolean, default=False)
+    verification_method = Column(String(50), default="dns_txt") # dns_txt, http_file, meta_tag, manual
+    verification_token = Column(String(100), nullable=False, default=lambda: f"cynera-verify-{uuid.uuid4().hex[:16]}")
+    status = Column(String(50), default="PENDING") # ONLINE, DEGRADED, DOWN, TIMEOUT, DNS_FAILURE, TLS_FAILURE, HTTP_ERROR, PAUSED, PENDING
+    monitoring_interval_seconds = Column(Integer, default=60) # 30, 60, 300, 600
+    expected_status_codes = Column(Text, default='[200, 201, 204, 301, 302]')
+    timeout_seconds = Column(Integer, default=10)
+    is_active = Column(Boolean, default=True)
+    consecutive_failures = Column(Integer, default=0)
+    consecutive_successes = Column(Integer, default=0)
+    last_checked_at = Column(DateTime, nullable=True)
+    last_status_code = Column(Integer, nullable=True)
+    last_response_time_ms = Column(Float, default=0.0)
+    uptime_percentage_24h = Column(Float, default=100.0)
+    ssl_status = Column(String(50), default="VALID") # VALID, WARNING, EXPIRED, INVALID, UNKNOWN
+    ssl_issuer = Column(String(255), nullable=True)
+    ssl_expiry_date = Column(DateTime, nullable=True)
+    ssl_days_remaining = Column(Integer, nullable=True)
+    dns_status = Column(String(50), default="HEALTHY") # HEALTHY, DEGRADED, FAILED
+    dns_resolved_ips = Column(Text, default='[]') # JSON list
+    dns_lookup_time_ms = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now)
+
+    organization = relationship("Organization", back_populates="websites")
+    check_results = relationship("WebsiteCheckResult", back_populates="website", cascade="all, delete-orphan")
+    endpoints = relationship("WebsiteEndpoint", back_populates="website", cascade="all, delete-orphan")
+
+class WebsiteCheckResult(Base):
+    __tablename__ = "website_check_results"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    website_id = Column(String(36), ForeignKey("monitored_websites.id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(50), nullable=False) # ONLINE, DEGRADED, DOWN, TIMEOUT, DNS_FAILURE, TLS_FAILURE, HTTP_ERROR
+    status_code = Column(Integer, nullable=True)
+    response_time_ms = Column(Float, default=0.0)
+    dns_lookup_time_ms = Column(Float, default=0.0)
+    tls_handshake_time_ms = Column(Float, default=0.0)
+    dns_resolved_ips = Column(Text, default='[]')
+    ssl_valid = Column(Boolean, default=True)
+    ssl_days_remaining = Column(Integer, nullable=True)
+    error_message = Column(Text, nullable=True)
+    check_location = Column(String(50), default="SaaS Primary Cloud")
+    recorded_at = Column(DateTime, default=utc_now)
+
+    website = relationship("MonitoredWebsite", back_populates="check_results")
+
+class WebsiteEndpoint(Base):
+    __tablename__ = "website_endpoints"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    website_id = Column(String(36), ForeignKey("monitored_websites.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    endpoint_url = Column(String(500), nullable=False)
+    method = Column(String(10), default="GET")
+    expected_status_code = Column(Integer, default=200)
+    is_active = Column(Boolean, default=True)
+    last_status = Column(String(50), default="ONLINE")
+    last_latency_ms = Column(Float, default=0.0)
+    last_checked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    website = relationship("MonitoredWebsite", back_populates="endpoints")
+
+# =====================================================================
+# 3. APPLICATION PERFORMANCE MONITORING (APM - SDK Integrations)
+# =====================================================================
+class ApplicationService(Base):
+    __tablename__ = "application_services"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False) # e.g. "Payment Gateway API"
+    language = Column(String(50), default="Python") # Python, JavaScript/Node, Go
+    environment = Column(String(50), default="production") # production, staging, development
+    version = Column(String(50), default="1.0.0")
+    api_key_id = Column(String(36), nullable=True)
+    status = Column(String(50), default="HEALTHY") # HEALTHY, DEGRADED, CRITICAL
+    last_heartbeat_at = Column(DateTime, nullable=True)
+    avg_latency_ms = Column(Float, default=0.0)
+    error_rate_pct = Column(Float, default=0.0)
+    request_count_24h = Column(Integer, default=0)
+    created_at = Column(DateTime, default=utc_now)
+
+    organization = relationship("Organization", back_populates="app_services")
+    events = relationship("ApplicationEvent", back_populates="service", cascade="all, delete-orphan")
+
+class ApplicationEvent(Base):
+    __tablename__ = "application_events"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    service_id = Column(String(36), ForeignKey("application_services.id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String(50), default="error") # error, exception, trace, warning, metric
+    name = Column(String(255), nullable=False) # e.g. "DatabaseConnectionError"
+    message = Column(Text, nullable=False)
+    stack_trace = Column(Text, nullable=True)
+    endpoint = Column(String(255), nullable=True)
+    duration_ms = Column(Float, default=0.0)
+    status_code = Column(Integer, nullable=True)
+    recorded_at = Column(DateTime, default=utc_now)
+
+    service = relationship("ApplicationService", back_populates="events")
+
+# =====================================================================
+# 4. DATABASE MONITORING (PostgreSQL / MySQL Integrations)
+# =====================================================================
+class DatabaseIntegration(Base):
+    __tablename__ = "database_integrations"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    db_type = Column(String(50), default="PostgreSQL") # PostgreSQL, MySQL, Redis
+    host = Column(String(255), nullable=False)
+    port = Column(Integer, default=5432)
+    database_name = Column(String(100), default="postgres")
+    username_masked = Column(String(100), default="cynera_monitor_ro")
+    status = Column(String(50), default="HEALTHY") # HEALTHY, DEGRADED, OFFLINE
+    avg_query_latency_ms = Column(Float, default=0.0)
+    active_connections = Column(Integer, default=0)
+    max_connections = Column(Integer, default=100)
+    pool_saturation_pct = Column(Float, default=0.0)
+    slow_queries_count = Column(Integer, default=0)
+    last_checked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    organization = relationship("Organization", back_populates="db_integrations")
+    metrics = relationship("DatabaseMetric", back_populates="integration", cascade="all, delete-orphan")
+
+class DatabaseMetric(Base):
+    __tablename__ = "database_metrics"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    integration_id = Column(String(36), ForeignKey("database_integrations.id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    connection_status = Column(String(50), default="CONNECTED")
+    latency_ms = Column(Float, default=0.0)
+    active_connections = Column(Integer, default=0)
+    slow_query_count = Column(Integer, default=0)
+    cache_hit_ratio_pct = Column(Float, default=99.2)
+    recorded_at = Column(DateTime, default=utc_now)
+
+    integration = relationship("DatabaseIntegration", back_populates="metrics")
+
+# =====================================================================
+# 5. ALERT CENTER & WEBHOOKS
+# =====================================================================
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=False)
+    severity = Column(String(20), default="HIGH") # LOW, MEDIUM, HIGH, CRITICAL
+    category = Column(String(50), default="website") # website, infrastructure, network, application, database, security
+    resource_name = Column(String(255), nullable=False)
+    resource_id = Column(String(100), nullable=True)
+    evidence = Column(Text, nullable=False)
+    status = Column(String(20), default="ACTIVE") # ACTIVE, ACKNOWLEDGED, RESOLVED
+    incident_id = Column(String(36), nullable=True)
+    notification_sent = Column(Boolean, default=False)
+    detected_at = Column(DateTime, default=utc_now)
+    resolved_at = Column(DateTime, nullable=True)
+
+    organization = relationship("Organization", back_populates="alerts")
+
+class Webhook(Base):
+    __tablename__ = "webhooks"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    organization_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(String(36), ForeignKey("profiles.id", ondelete="SET NULL"), nullable=True)
+    name = Column(String(255), nullable=False)
+    destination_url = Column(String(500), nullable=False) # HTTPS required, SSRF protected
+    secret_hash = Column(String(255), nullable=False) # HMAC secret hash
+    secret_preview = Column(String(30), nullable=False) # e.g. "whsec_4f..."
+    events = Column(Text, default='["alert.created", "incident.created", "website.down", "website.recovered"]')
+    is_active = Column(Boolean, default=True)
+    last_delivery_status = Column(String(50), nullable=True) # SUCCESS, FAILED, TIMEOUT
+    last_delivery_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    organization = relationship("Organization", back_populates="webhooks")
+    deliveries = relationship("WebhookDelivery", back_populates="webhook", cascade="all, delete-orphan")
+
+class WebhookDelivery(Base):
+    __tablename__ = "webhook_deliveries"
+
+    id = Column(String(36), primary_key=True, default=gen_uuid)
+    webhook_id = Column(String(36), ForeignKey("webhooks.id", ondelete="CASCADE"), nullable=False)
+    event_type = Column(String(100), nullable=False)
+    payload_json = Column(Text, nullable=False)
+    response_status_code = Column(Integer, nullable=True)
+    response_body_preview = Column(Text, nullable=True)
+    execution_time_ms = Column(Float, default=0.0)
+    status = Column(String(50), default="SUCCESS") # SUCCESS, FAILED
+    delivered_at = Column(DateTime, default=utc_now)
+
+    webhook = relationship("Webhook", back_populates="deliveries")
+
+# =====================================================================
+# 6. INFRASTRUCTURE & COLLECTORS (PRODUCT B - Tier 1 Local Collector)
+# =====================================================================
 class Collector(Base):
     __tablename__ = "collectors"
 
@@ -257,6 +482,9 @@ class EgressMetadata(Base):
     sent_at = Column(DateTime, default=utc_now)
     delivered_at = Column(DateTime, default=utc_now)
 
+# =====================================================================
+# 7. AIOPS INCIDENTS, ALERTS & AUTONOMOUS RECOMMENDATIONS
+# =====================================================================
 class IncidentAlert(Base):
     __tablename__ = "incident_alerts"
 
@@ -279,7 +507,7 @@ class Incident(Base):
     id = Column(String(36), primary_key=True, default=gen_uuid)
     incident_number = Column(String(50), unique=True, nullable=False) # e.g. INC-2026-0042
     tenant_id = Column(String(36), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    collector_id = Column(String(100), ForeignKey("collectors.id", ondelete="CASCADE"), nullable=False)
+    collector_id = Column(String(100), ForeignKey("collectors.id", ondelete="CASCADE"), nullable=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     severity = Column(String(20), nullable=False) # LOW, MEDIUM, HIGH, CRITICAL
@@ -356,6 +584,9 @@ class PerformanceBenchmark(Base):
     lost_record_count = Column(Integer, default=0)
     recorded_at = Column(DateTime, default=utc_now)
 
+# =====================================================================
+# 8. TCP/IP & IP-BASED NETWORK DEVICES
+# =====================================================================
 class NetworkDevice(Base):
     __tablename__ = "network_devices"
 

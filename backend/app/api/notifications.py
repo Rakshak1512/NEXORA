@@ -51,3 +51,4 @@ def mark_all_as_read(
         ).update({"is_read": True})
         db.commit()
     return {"status": "all_marked_read"}
+

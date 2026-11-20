@@ -36,6 +36,12 @@ import DeveloperPortalView from './pages/DeveloperPortalView';
 import AuditLogsView from './pages/AuditLogsView';
 import ScenarioControlView from './pages/ScenarioControlView';
 import SettingsView from './pages/SettingsView';
+import WebsiteMonitoringView from './pages/WebsiteMonitoringView';
+import WebsiteDetailsView from './pages/WebsiteDetailsView';
+import ApplicationMonitoringView from './pages/ApplicationMonitoringView';
+import DatabaseMonitoringView from './pages/DatabaseMonitoringView';
+import AlertCenterView from './pages/AlertCenterView';
+import WebhookManagementView from './pages/WebhookManagementView';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -74,6 +80,12 @@ function App() {
               {/* Protected Operational Dashboard */}
               <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<OverviewDashboard />} />
+                <Route path="/websites" element={<WebsiteMonitoringView />} />
+                <Route path="/websites/:id" element={<WebsiteDetailsView />} />
+                <Route path="/applications" element={<ApplicationMonitoringView />} />
+                <Route path="/databases" element={<DatabaseMonitoringView />} />
+                <Route path="/alerts" element={<AlertCenterView />} />
+                <Route path="/webhooks" element={<WebhookManagementView />} />
                 <Route path="/collectors" element={<CollectorsView />} />
                 <Route path="/infrastructure" element={<InfrastructureView />} />
                 <Route path="/network" element={<NetworkMonitoringView />} />
