@@ -47,7 +47,7 @@ def create_managed_user(data: AdminUserCreate, admin: Profile = Depends(RoleChec
             raise HTTPException(status_code=400, detail="Tenant does not belong to selected organization.")
     user = Profile(email=email, full_name=data.full_name.strip(), password_hash=get_password_hash(data.password),
                    role=data.role, organization_id=data.organization_id, tenant_id=data.tenant_id,
-                   is_active=True, is_verified=False)
+                   is_active=True, is_verified=True)
     db.add(user)
     db.flush()
     if data.organization_id:
