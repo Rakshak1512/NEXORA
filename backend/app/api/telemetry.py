@@ -4,7 +4,8 @@ from ..database import get_db
 from ..schemas.schemas import TelemetryIngestPayload
 from ..auth.collector_auth import verify_collector_credentials
 from ..services.telemetry_service import telemetry_service
-from ..models.models import InfrastructureMetric, NetworkMetric, SecuritySummary
+from ..models.models import InfrastructureMetric, NetworkMetric, SecuritySummary, Profile
+from ..auth.deps import get_current_user
 
 router = APIRouter(prefix="/telemetry", tags=["Telemetry"])
 
@@ -19,6 +20,8 @@ async def ingest_telemetry(
     Accepts only approved metadata payloads.
     Guarantees idempotency and duplicate elimination via payload_id.
     """
+    if payload.collector_id != collector_id:
+        raise HTTPException(status_code=403, detail="Payload collector does not match authenticated collector.")
     success, message, result = await telemetry_service.process_ingestion(db, payload)
     return {
         "success": success,
@@ -27,8 +30,8 @@ async def ingest_telemetry(
     }
 
 @router.get("/latest")
-def get_latest_telemetry(collector_id: str = None, db: Session = Depends(get_db)):
-    query = db.query(InfrastructureMetric).order_by(InfrastructureMetric.recorded_at.desc())
+def get_latest_telemetry(collector_id: str = None, current_user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+    query = db.query(InfrastructureMetric).filter(InfrastructureMetric.tenant_id == current_user.tenant_id).order_by(InfrastructureMetric.recorded_at.desc())
     if collector_id:
         query = query.filter(InfrastructureMetric.collector_id == collector_id)
     latest = query.first()
