@@ -226,51 +226,59 @@ async def verify_website_ownership(
     expected_token: str,
     method: str = "dns_txt"
 ) -> Tuple[bool, str]:
-    """Verifies that the customer owns or is authorized to monitor the target domain."""
-    # Method 1: Auto / manual instant verify for testing
-    if method == "manual" or method == "instant":
-        return True, "Domain ownership verified via administrative approval."
+    """Verifies domain control using an exact, live challenge proof."""
+    if method in ("manual", "instant"):
+        return False, "Manual/instant verification is disabled. Publish the supplied DNS or HTTP challenge."
 
     parsed = urllib.parse.urlparse(url)
     hostname = parsed.hostname
     if not hostname:
         return False, "Invalid target domain."
 
-    # Method 2: HTML Meta Tag Check (<meta name="cynera-verification" content="{token}">)
-    if method == "meta_tag":
-        try:
-            async with httpx.AsyncClient(timeout=10.0, verify=False, follow_redirects=True) as client:
-                res = await client.get(url, headers={"User-Agent": "CYNERA-Domain-Verifier/1.4"})
-                if res.status_code == 200:
-                    text = res.text
-                    # Check for cynera-verification or cynera-site-verification meta tags
-                    pattern = rf'<meta\s+[^>]*name=["\'](?:cynera-verification|cynera-site-verification)["\'][^>]*content=["\']{re.escape(expected_token)}["\']'
-                    pattern_alt = rf'<meta\s+[^>]*content=["\']{re.escape(expected_token)}["\'][^>]*name=["\'](?:cynera-verification|cynera-site-verification)["\']'
-                    if re.search(pattern, text, re.IGNORECASE) or re.search(pattern_alt, text, re.IGNORECASE) or expected_token in text:
-                        return True, "Ownership verified successfully via HTML meta tag."
-                    return False, f"HTML meta tag with verification token '{expected_token}' not detected on {url}."
-                return False, f"Verification failed: Target returned HTTP status {res.status_code}."
-        except Exception as e:
-            return False, f"HTML meta tag verification request failed: {e}"
-
-    # Method 3: HTTP File Check (/.well-known/cynera-verify.txt)
-    if method == "http_file":
-        verify_url = f"{parsed.scheme}://{hostname}/.well-known/cynera-verify.txt"
-        try:
-            async with httpx.AsyncClient(timeout=8.0, verify=False) as client:
-                res = await client.get(verify_url)
-                if res.status_code == 200 and expected_token in res.text:
-                    return True, "Ownership verified successfully via HTTP token file."
-                return False, f"Token file at '{verify_url}' did not contain token '{expected_token}'."
-        except Exception as e:
-            return False, f"HTTP verification request failed: {e}"
-
-    # Method 4: DNS TXT Record verification
     if method == "dns_txt":
         try:
-            # Check using socket / dnspython if installed or fallback
-            return True, "Ownership verified via DNS TXT record confirmation."
-        except Exception as e:
-            return False, f"DNS TXT record verification failed: {e}"
+            import dns.resolver
+            answers = dns.resolver.resolve(f"_cynera-verification.{hostname}", "TXT", lifetime=5.0)
+            for answer in answers:
+                value = b"".join(answer.strings).decode("utf-8", errors="ignore").strip()
+                if value == expected_token:
+                    return True, "Ownership verified via the _cynera-verification DNS TXT record."
+            return False, "The DNS TXT record did not contain the exact verification token."
+        except Exception as exc:
+            return False, f"DNS TXT verification failed: {exc}"
 
-    return True, "Domain verified."
+    if method == "meta_tag":
+        safe, reason, safe_url, _ = validate_public_url(url)
+        if not safe:
+            return False, f"Verification target blocked: {reason}"
+        try:
+            async with httpx.AsyncClient(timeout=10.0, verify=True, follow_redirects=False) as client:
+                response = await client.get(safe_url, headers={"User-Agent": "CYNERA-Domain-Verifier/1.4"})
+            if response.status_code != 200:
+                return False, f"Verification failed: target returned HTTP {response.status_code}."
+            tag = re.compile(
+                r'<meta\\s+[^>]*(?:name=["\\'](?:cynera-verification|cynera-site-verification)["\\'][^>]*content=["\\']'
+                + re.escape(expected_token) +
+                r'["\\']|content=["\\']' + re.escape(expected_token) +
+                r'["\\'][^>]*name=["\\'](?:cynera-verification|cynera-site-verification)["\\'])',
+                re.IGNORECASE
+            )
+            return (True, "Ownership verified via HTML meta tag.") if tag.search(response.text) else (False, "Expected ownership meta tag was not detected.")
+        except Exception as exc:
+            return False, f"HTML meta tag verification request failed: {exc}"
+
+    if method == "http_file":
+        verify_url = f"{parsed.scheme}://{hostname}/.well-known/cynera-verify.txt"
+        safe, reason, safe_url, _ = validate_public_url(verify_url)
+        if not safe:
+            return False, f"Verification target blocked: {reason}"
+        try:
+            async with httpx.AsyncClient(timeout=8.0, verify=True, follow_redirects=False) as client:
+                response = await client.get(safe_url)
+            if response.status_code == 200 and response.text.strip() == expected_token:
+                return True, "Ownership verified via HTTP token file."
+            return False, "HTTP verification file did not exactly match the challenge token."
+        except Exception as exc:
+            return False, f"HTTP verification request failed: {exc}"
+
+    return False, "Unsupported ownership verification method."
