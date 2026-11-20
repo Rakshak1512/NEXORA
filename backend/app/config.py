@@ -17,33 +17,49 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     API_V1_STR: str = "/api"
 
-    # Database (Defaults to persistent backend/cynera.db)
-    DATABASE_URL: str = "sqlite:///./backend/cynera.db"
-    DB_ENGINE: str = "sqlite"
-    DB_HOST: str = "localhost"
+    # Database (Supabase PostgreSQL is primary)
+    SUPABASE_DB_URL: str = ""
+    DATABASE_URL: str = ""
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    DB_ENGINE: str = "postgresql"
+    DB_HOST: str = ""
     DB_PORT: int = 5432
-    DB_NAME: str = "cynera.db"
+    DB_NAME: str = "postgres"
     DB_USER: str = ""
     DB_PASSWORD: str = ""
-    SUPABASE_URL: str = ""
-    SUPABASE_KEY: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
 
-    # Security
-    JWT_SECRET_KEY: str = "cynera-2026-super-secret-jwt-key-98127398127"
+    # Security & Tokens
+    JWT_SECRET_KEY: str = ""
     JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
     ALGORITHM: str = ""
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     COLLECTOR_AUTH_SECRET: str = "secret-collector-token-01"
+
+    # Collector Reference Config
+    COLLECTOR_ID: str = "col-prod-core-01"
+    COLLECTOR_NAME: str = "Primary Cluster Collector 01"
+    TENANT_ID: str = "11111111-1111-1111-1111-111111111111"
+    COLLECTOR_CREDENTIAL: str = "secret-collector-token-01"
+    COLLECTION_INTERVAL_SECONDS: int = 5
+    HEARTBEAT_INTERVAL_SECONDS: int = 15
+    LOCAL_QUEUE_PATH: str = "data/local_buffer.db"
+    MAX_RETRY_ATTEMPTS: int = 5
+    BACKOFF_FACTOR: float = 1.5
+    VERSION: str = "1.4.2"
+    SIMULATED_MODE: bool = False
 
     # Email & OTP (Resend API)
     RESEND_API_KEY: str = ""
-    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
-    RESEND_FROM_NAME: str = "CYNERA Security"
+    RESEND_FROM_EMAIL: str = ""
+    RESEND_FROM_NAME: str = "CYNERA"
     RESEND_REPLY_TO: str = "support@cynera.io"
+    OTP_EXPIRY_MINUTES: int = 5
+    OTP_LENGTH: int = 6
+    OTP_REQUIRED: bool = True
     OTP_HASH_SECRET: str = "cynera-otp-salt-98723498237"
-    OTP_EXPIRE_MINUTES: int = 10
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"
@@ -51,7 +67,34 @@ class Settings(BaseSettings):
 
     @property
     def jwt_secret(self) -> str:
-        return self.JWT_SECRET_KEY or self.JWT_SECRET or "cicada-2026-super-secret-jwt-key-98127398127"
+        key = self.JWT_SECRET_KEY or self.JWT_SECRET
+        if not key:
+            if "PYTEST_CURRENT_TEST" in os.environ or os.getenv("TESTING") == "true":
+                return "cynera-test-secret-key-98127398127"
+            return ""
+        return key
+
+    def get_active_db_url(self) -> str:
+        # Strict precedence: SUPABASE_DB_URL > DATABASE_URL
+        raw = (self.SUPABASE_DB_URL or self.DATABASE_URL or "").strip()
+        if raw.startswith("postgres://"):
+            raw = raw.replace("postgres://", "postgresql://", 1)
+        # In automated test runner, use local SQLite test store
+        if not raw and ("PYTEST_CURRENT_TEST" in os.environ or os.getenv("TESTING") == "true"):
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            cynera_db = os.path.join(backend_dir, "cynera.db").replace(os.sep, "/")
+            return f"sqlite:///{cynera_db}"
+        return raw
+
+    def is_database_configured(self) -> bool:
+        url = self.get_active_db_url()
+        return bool(url and (url.startswith("postgresql://") or url.startswith("sqlite://")))
+
+    def is_resend_configured(self) -> bool:
+        return bool(self.RESEND_API_KEY and not self.RESEND_API_KEY.startswith("re_your") and self.RESEND_FROM_EMAIL)
+
+    def is_jwt_configured(self) -> bool:
+        return bool(self.JWT_SECRET_KEY and self.JWT_SECRET_KEY.strip())
 
     @property
     def algorithm(self) -> str:

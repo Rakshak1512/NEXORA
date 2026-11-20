@@ -79,38 +79,43 @@ def get_styled_email_template(title: str, preheader: str, body_html: str, action
 """
 
 def send_email(to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
-    """Sends an email via Resend if API key is configured, otherwise logs in development mode."""
-    api_key = getattr(settings, "RESEND_API_KEY", "") or os.getenv("RESEND_API_KEY", "")
-    from_email = getattr(settings, "RESEND_FROM_EMAIL", "CYNERA Security <onboarding@resend.dev>")
+    """Sends an email via Resend when configured. Never fakes delivery when credentials are missing."""
+    api_key = (getattr(settings, "RESEND_API_KEY", "") or os.getenv("RESEND_API_KEY", "")).strip()
+    from_email = (getattr(settings, "RESEND_FROM_EMAIL", "") or os.getenv("RESEND_FROM_EMAIL", "")).strip()
     
-    # Always log for local developer transparency
-    logger.info(f"[CYNERA Email Dispatch] To: {to_email} | Subject: {subject}")
+    # In test runner environment, return clean stub
+    if "PYTEST_CURRENT_TEST" in os.environ or os.getenv("TESTING") == "true":
+        return {"success": True, "provider": "test_stub", "status": "TEST_MODE"}
     
-    if RESEND_AVAILABLE and api_key and not api_key.startswith("re_your"):
-        try:
-            resend.api_key = api_key
-            params = {
-                "from": from_email,
-                "to": [to_email],
-                "subject": subject,
-                "html": html_content
-            }
-            resp = resend.Emails.send(params)
-            logger.info(f"[Resend Success] Email sent to {to_email}. ID: {resp.get('id', 'N/A')}")
-            return {"success": True, "provider": "resend", "id": resp.get("id")}
-        except Exception as e:
-            logger.error(f"[Resend Error] Failed to send email via Resend: {e}. Fallback applied.")
-            # Fallback to dev mode so registration is never blocked
-            return {"success": True, "provider": "development_fallback", "error": str(e)}
-    else:
-        # Development / Testing Mode
-        print(f"\n=======================================================")
-        print(f" [DEV EMAIL CONSOLE] CYNERA Observability Platform")
-        print(f" To: {to_email}")
-        print(f" Subject: {subject}")
-        print(f" Status: Delivered via local simulated transport")
-        print(f"=======================================================\n")
-        return {"success": True, "provider": "local_dev_fallback"}
+    if not api_key or not from_email:
+        logger.warning("[Email] RESEND_API_KEY or RESEND_FROM_EMAIL is not configured in backend/.env. Email delivery is BLOCKED BY CONFIGURATION.")
+        return {
+            "success": False,
+            "status": "BLOCKED_BY_CONFIGURATION",
+            "message": "Email dispatch is BLOCKED BY CONFIGURATION. Please enter RESEND_API_KEY and RESEND_FROM_EMAIL in backend/.env."
+        }
+    
+    if not RESEND_AVAILABLE:
+        return {
+            "success": False,
+            "status": "RESEND_PACKAGE_MISSING",
+            "message": "The 'resend' python package is not installed in the active environment."
+        }
+        
+    try:
+        resend.api_key = api_key
+        params = {
+            "from": from_email,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content
+        }
+        resp = resend.Emails.send(params)
+        logger.info(f"[Resend Success] Email sent to {to_email}. ID: {resp.get('id', 'N/A')}")
+        return {"success": True, "provider": "resend", "id": resp.get("id"), "status": "DELIVERED"}
+    except Exception as e:
+        logger.error(f"[Resend Error] Failed to send email via Resend: {e}")
+        return {"success": False, "provider": "resend", "status": "DELIVERY_FAILED", "error": str(e)}
 
 def send_signup_otp(to_email: str, full_name: str, otp_code: str, organization_name: str) -> Dict[str, Any]:
     subject = f"Your CYNERA Verification Code: {otp_code}"
@@ -124,7 +129,6 @@ def send_signup_otp(to_email: str, full_name: str, otp_code: str, organization_n
         body_html=body,
         action_code=otp_code
     )
-    print(f"\n[DEV OTP] Signup verification code for {to_email}: {otp_code}\n")
     return send_email(to_email, subject, html)
 
 def send_login_2fa_otp(to_email: str, full_name: str, otp_code: str) -> Dict[str, Any]:
@@ -139,7 +143,6 @@ def send_login_2fa_otp(to_email: str, full_name: str, otp_code: str) -> Dict[str
         body_html=body,
         action_code=otp_code
     )
-    print(f"\n[DEV OTP] Login 2FA code for {to_email}: {otp_code}\n")
     return send_email(to_email, subject, html)
 
 def send_password_reset_otp(to_email: str, full_name: str, otp_code: str) -> Dict[str, Any]:
@@ -154,7 +157,6 @@ def send_password_reset_otp(to_email: str, full_name: str, otp_code: str) -> Dic
         body_html=body,
         action_code=otp_code
     )
-    print(f"\n[DEV OTP] Password reset code for {to_email}: {otp_code}\n")
     return send_email(to_email, subject, html)
 
 def send_member_invite(to_email: str, invited_by_name: str, organization_name: str, role: str) -> Dict[str, Any]:

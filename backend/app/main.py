@@ -57,6 +57,7 @@ def seed_database_if_empty():
                 plan="enterprise"
             )
             db.add(org)
+            db.flush()
 
             # 2. Tenants
             t1 = Tenant(
@@ -74,6 +75,7 @@ def seed_database_if_empty():
                 region="eu-central-1"
             )
             db.add_all([t1, t2])
+            db.flush()
 
             # 3. Default Users
             pw_hash_cynera = get_password_hash("Cynera2026!Secure")
@@ -116,6 +118,7 @@ def seed_database_if_empty():
                 tenant_id=t1.id
             )
             db.add_all([u1, u2, u_compat1, u_compat2])
+            db.flush()
 
             # 4. Collectors
             now_dt = datetime.datetime.now(datetime.timezone.utc)
@@ -168,6 +171,7 @@ def seed_database_if_empty():
                 last_seen_at=now_dt - datetime.timedelta(minutes=45)
             )
             db.add_all([c1, c2, c3, c4])
+            db.flush()
 
             # 5. Realistic Seed Incidents
             inc1 = Incident(
@@ -199,6 +203,7 @@ def seed_database_if_empty():
                 created_at=now_dt - datetime.timedelta(minutes=15)
             )
             db.add_all([inc1, inc2])
+            db.flush()
 
             # 6. AI Recommendations
             rec1 = AIRecommendation(
@@ -218,6 +223,7 @@ def seed_database_if_empty():
                 created_at=now_dt
             )
             db.add(rec1)
+            db.flush()
 
             # 7. Remediation Approvals
             app1 = RemediationApproval(
@@ -233,6 +239,7 @@ def seed_database_if_empty():
                 requested_at=now_dt
             )
             db.add(app1)
+            db.flush()
 
             # 8. Performance Benchmarks
             bench = PerformanceBenchmark(
@@ -248,6 +255,7 @@ def seed_database_if_empty():
                 lost_record_count=0
             )
             db.add(bench)
+            db.flush()
 
             # 9. Initial telemetry time-series seed
             for i in range(15):
@@ -424,25 +432,21 @@ def seed_database_if_empty():
                     url="https://cynera.io",
                     status="ONLINE",
                     is_active=True,
-                    ownership_verified=True,
+                    is_verified=True,
                     verification_method="instant",
                     monitoring_interval_seconds=60,
-                    check_timeout_seconds=10,
-                    http_method="GET",
-                    expected_status_codes="200,201,301,302",
-                    follow_redirects=True,
-                    check_ssl=True,
-                    ssl_expiry_warning_days=30,
+                    timeout_seconds=10,
+                    expected_status_codes="[200, 201, 301, 302]",
                     uptime_percentage_24h=99.98,
-                    uptime_percentage_30d=99.95,
                     last_response_time_ms=78.5,
                     last_status_code=200,
+                    ssl_status="VALID",
                     ssl_issuer="Let's Encrypt Authority X3",
                     ssl_days_remaining=74,
-                    dns_response_time_ms=18.2,
-                    dns_resolved_ips="104.21.55.2,172.67.180.11",
-                    last_checked_at=datetime.datetime.now(datetime.timezone.utc),
-                    last_status_change_at=datetime.datetime.now(datetime.timezone.utc)
+                    dns_status="HEALTHY",
+                    dns_lookup_time_ms=18.2,
+                    dns_resolved_ips='["104.21.55.2", "172.67.180.11"]',
+                    last_checked_at=datetime.datetime.now(datetime.timezone.utc)
                 )
                 db.add(demo_site)
                 db.commit()
@@ -453,13 +457,12 @@ def seed_database_if_empty():
                     id="alt-demo-01",
                     organization_id=org.id,
                     title="Network Latency Anomaly Detected",
-                    message="Round-trip time on core router 192.168.1.1 spiked to 142ms (+240% above baseline).",
-                    severity="warning",
-                    source="network",
-                    entity_type="device",
-                    entity_id="dev-core-router-01",
-                    status="active",
-                    acknowledged=False
+                    severity="HIGH",
+                    category="network",
+                    resource_name="dev-core-router-01",
+                    resource_id="dev-core-router-01",
+                    evidence="Round-trip time on core router 192.168.1.1 spiked to 142ms (+240% above baseline).",
+                    status="ACTIVE"
                 ))
                 db.commit()
 
@@ -470,14 +473,13 @@ def seed_database_if_empty():
                     organization_id=org.id,
                     name="cynera-backend-api",
                     environment="production",
-                    framework="FastAPI / Python",
-                    language="python",
-                    sdk_version="1.0.0",
+                    language="Python",
+                    version="1.0.0",
                     status="HEALTHY",
-                    error_rate_percent=0.12,
-                    throughput_rpm=240,
-                    p95_latency_ms=45.2,
-                    last_seen_at=datetime.datetime.now(datetime.timezone.utc)
+                    error_rate_pct=0.12,
+                    request_count_24h=2400,
+                    avg_latency_ms=45.2,
+                    last_heartbeat_at=datetime.datetime.now(datetime.timezone.utc)
                 ))
                 db.commit()
 
@@ -487,17 +489,17 @@ def seed_database_if_empty():
                     id="db-demo-01",
                     organization_id=org.id,
                     name="Primary Production PostgreSQL",
-                    db_type="postgresql",
+                    db_type="PostgreSQL",
                     host="pg-cluster.internal",
                     port=5432,
                     database_name="cynera_prod",
-                    username="cynera_ro",
+                    username_masked="cynera_ro",
                     status="HEALTHY",
-                    connection_saturation_percent=24.5,
+                    pool_saturation_pct=24.5,
                     active_connections=18,
                     max_connections=100,
                     avg_query_latency_ms=8.4,
-                    slow_queries_count_24h=2,
+                    slow_queries_count=2,
                     last_checked_at=datetime.datetime.now(datetime.timezone.utc)
                 ))
                 db.commit()

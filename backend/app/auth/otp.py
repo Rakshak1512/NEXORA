@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..models.models import OTPChallenge, utc_now
 
-OTP_EXPIRY_MINUTES = 10
+OTP_EXPIRY_MINUTES = getattr(settings, "OTP_EXPIRY_MINUTES", 5)
 MAX_ATTEMPTS = 5
 RESEND_COOLDOWN_SECONDS = 60
 
