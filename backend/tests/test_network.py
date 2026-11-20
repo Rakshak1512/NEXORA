@@ -1,12 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
+from auth_helpers import login_as_platform_admin
 
 def get_auth_headers(client: TestClient):
-    login_res = client.post("/api/auth/login", json={
-        "email": "admin@cynera.io",
-        "password": "Cynera2026!Secure"
-    })
-    token = login_res.json()["access_token"]
+    token = login_as_platform_admin(client)
     return {"Authorization": f"Bearer {token}"}
 
 def test_list_network_devices(client):
