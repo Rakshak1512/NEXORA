@@ -1,15 +1,12 @@
 import pytest
+from auth_helpers import login_as_platform_admin
 
 def test_login_success(client):
-    res = client.post("/api/auth/login", json={
-        "email": "admin@cynera.io",
-        "password": "Cynera2026!Secure"
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert "access_token" in data
-    assert data["user"]["email"] == "admin@cynera.io"
-    assert data["user"]["role"] == "Super Administrator"
+    token = login_as_platform_admin(client)
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["email"] == "admin@cynera.io"
+    assert me.json()["role"] == "Super Administrator"
 
 def test_login_invalid_password(client):
     res = client.post("/api/auth/login", json={
@@ -18,17 +15,12 @@ def test_login_invalid_password(client):
     })
     assert res.status_code == 401
 
-def test_register_and_get_me(client):
-    email = f"newoperator@cynera.io"
+def test_legacy_registration_is_disabled(client):
     res = client.post("/api/auth/register", json={
-        "email": email,
+        "email": "newoperator@cynera.io",
         "password": "Cynera2026!Secure",
         "full_name": "Jordan Smith",
         "role": "Operator"
     })
-    # If already exists in DB, 400 or 200
-    if res.status_code == 200:
-        token = res.json()["access_token"]
-        me_res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
-        assert me_res.status_code == 200
-        assert me_res.json()["email"] == email
+    assert res.status_code == 410
+    assert "register-org" in res.json()["detail"]
