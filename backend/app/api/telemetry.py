@@ -4,7 +4,7 @@ from ..database import get_db
 from ..schemas.schemas import TelemetryIngestPayload
 from ..auth.collector_auth import verify_collector_credentials
 from ..services.telemetry_service import telemetry_service
-from ..models.models import InfrastructureMetric, NetworkMetric, SecuritySummary, Profile
+from ..models.models import InfrastructureMetric, NetworkMetric, SecuritySummary, Profile, Collector
 from ..auth.deps import get_current_user
 
 router = APIRouter(prefix="/telemetry", tags=["Telemetry"])
@@ -20,8 +20,9 @@ async def ingest_telemetry(
     Accepts only approved metadata payloads.
     Guarantees idempotency and duplicate elimination via payload_id.
     """
-    if payload.collector_id != collector_id:
-        raise HTTPException(status_code=403, detail="Payload collector does not match authenticated collector.")
+    registered = db.query(Collector).filter(Collector.id == collector_id).first()
+    if payload.collector_id != collector_id or not registered or payload.tenant_id != registered.tenant_id:
+        raise HTTPException(status_code=403, detail="Payload identity does not match authenticated collector and tenant.")
     success, message, result = await telemetry_service.process_ingestion(db, payload)
     return {
         "success": success,
