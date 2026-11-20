@@ -1,9 +1,10 @@
+from app.config import settings
 import pytest
 import uuid
 
 def test_telemetry_ingestion_and_idempotency(client):
     headers = {
-        "Authorization": "Bearer secret-collector-token-01",
+        "Authorization": f"Bearer {settings.COLLECTOR_CREDENTIAL}",
         "X-Collector-ID": "col-prod-core-01",
         "X-Tenant-ID": "11111111-1111-1111-1111-111111111111"
     }
