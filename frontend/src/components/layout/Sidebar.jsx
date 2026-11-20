@@ -5,7 +5,7 @@ import {
   FileCheck2, BrainCircuit, AlertOctagon, Sparkles, 
   CheckSquare, Globe, BarChart3, History, Sliders, 
   Settings, X, ShieldAlert, Building2, Key, FileText,
-  Layers, Database, BellRing, Webhook, ShieldCheck
+  Layers, Database, BellRing, Webhook, ShieldCheck, Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -55,7 +55,8 @@ const navGroups = [
       { path: '/global', label: 'Global Operations', icon: Globe },
       { path: '/analytics', label: 'Platform Benchmarks', icon: BarChart3 },
       { path: '/audit-logs', label: 'System Audit Logs', icon: History },
-      { path: '/scenarios', label: 'Fault Simulation', icon: Sliders }
+      { path: '/scenarios', label: 'Fault Simulation', icon: Sliders },
+      { path: '/admin/users', label: 'User Administration', icon: Users }
     ]
   }
 ];
