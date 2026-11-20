@@ -445,7 +445,9 @@ def get_me(current_user: Profile = Depends(get_current_user), db: Session = Depe
         "id": current_user.id,
         "email": current_user.email,
         "full_name": current_user.full_name,
-        "role": membership.role if membership else current_user.role,
+        # A platform Super Administrator must retain the global role; an
+        # organization membership must never downgrade platform privileges.
+        "role": current_user.role if current_user.role == "Super Administrator" else (membership.role if membership else current_user.role),
         "job_title": current_user.job_title,
         "phone": current_user.phone,
         "is_verified": current_user.is_verified,
