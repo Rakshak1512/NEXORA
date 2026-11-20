@@ -1,5 +1,6 @@
 import secrets
 import hashlib
+import hmac
 import datetime
 import json
 from typing import Optional, Tuple, Dict, Any
@@ -18,9 +19,11 @@ def generate_otp() -> str:
 
 def hash_otp(email: str, otp: str, purpose: str) -> str:
     """Hashes the OTP combined with email, purpose and server secret."""
-    secret = getattr(settings, "OTP_HASH_SECRET", "cynera_secret_hash_key_2026")
-    raw = f"{email.lower().strip()}:{purpose}:{otp}:{secret}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    secret = (getattr(settings, "OTP_HASH_SECRET", "") or "").strip()
+    if len(secret) < 32:
+        raise RuntimeError("OTP_HASH_SECRET must be configured with at least 32 characters.")
+    message = f"{email.lower().strip()}:{purpose}:{otp}".encode("utf-8")
+    return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 def create_otp_challenge(
     db: Session,
@@ -70,6 +73,8 @@ def verify_otp_challenge(
     """Verifies a 6-digit OTP challenge against the database."""
     clean_email = email.lower().strip()
     clean_otp = str(otp).strip()
+    if not (len(clean_otp) == 6 and clean_otp.isdigit()):
+        return False, "Invalid verification code.", None
     
     challenge = db.query(OTPChallenge).filter(
         OTPChallenge.email == clean_email,
@@ -101,7 +106,7 @@ def verify_otp_challenge(
     
     # Verify hash
     expected_hash = hash_otp(clean_email, clean_otp, purpose)
-    if challenge.otp_hash != expected_hash:
+    if not hmac.compare_digest(challenge.otp_hash, expected_hash):
         db.commit()
         remaining = MAX_ATTEMPTS - challenge.attempts
         return False, f"Invalid verification code. {remaining} attempt(s) remaining.", None
