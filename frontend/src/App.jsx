@@ -42,6 +42,14 @@ import ApplicationMonitoringView from './pages/ApplicationMonitoringView';
 import DatabaseMonitoringView from './pages/DatabaseMonitoringView';
 import AlertCenterView from './pages/AlertCenterView';
 import WebhookManagementView from './pages/WebhookManagementView';
+import AdminUsersView from './pages/AdminUsersView';
+
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen bg-[#070C14] flex items-center justify-center text-cyan-400">Loading…</div>;
+  if (!user || user.role !== 'Super Administrator') return <Navigate to="/dashboard" replace />;
+  return children;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -103,6 +111,7 @@ function App() {
                 <Route path="/audit-logs" element={<AuditLogsView />} />
                 <Route path="/scenarios" element={<ScenarioControlView />} />
                 <Route path="/settings" element={<SettingsView />} />
+                <Route path="/admin/users" element={<AdminRoute><AdminUsersView /></AdminRoute>} />
               </Route>
 
               {/* 404 Catch-All */}
