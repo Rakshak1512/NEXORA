@@ -93,8 +93,8 @@ def test_monitored_website_lifecycle():
         json={"method": "instant"},
         headers=headers
     )
-    assert verify_res.status_code == 200
-    assert verify_res.json()["verified"] is True
+    assert verify_res.status_code == 400
+    assert "disabled" in verify_res.json()["detail"].lower()
 
     # 6. Add Endpoint
     ep_res = client.post(
