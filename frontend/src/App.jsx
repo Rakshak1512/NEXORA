@@ -43,6 +43,7 @@ import DatabaseMonitoringView from './pages/DatabaseMonitoringView';
 import AlertCenterView from './pages/AlertCenterView';
 import WebhookManagementView from './pages/WebhookManagementView';
 import AdminUsersView from './pages/AdminUsersView';
+import SecurityArchitectureView from './pages/SecurityArchitectureView';
 
 const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -111,6 +112,7 @@ function App() {
                 <Route path="/audit-logs" element={<AuditLogsView />} />
                 <Route path="/scenarios" element={<ScenarioControlView />} />
                 <Route path="/settings" element={<SettingsView />} />
+                <Route path="/security-center" element={<SecurityArchitectureView />} />
                 <Route path="/admin/users" element={<AdminRoute><AdminUsersView /></AdminRoute>} />
               </Route>
 
