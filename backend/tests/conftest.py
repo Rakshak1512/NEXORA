@@ -1,6 +1,7 @@
 import sys
 import os
 import pytest
+os.environ.setdefault("OTP_HASH_SECRET", "test-only-otp-hmac-secret-32-bytes-minimum")
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
