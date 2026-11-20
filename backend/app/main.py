@@ -19,6 +19,7 @@ from .websocket.manager import ws_manager
 
 # API Routers
 from .api.auth import router as auth_router
+from .api.admin import router as admin_router
 from .api.collectors import router as collectors_router
 from .api.telemetry import router as telemetry_router
 from .api.metrics import router as metrics_router
