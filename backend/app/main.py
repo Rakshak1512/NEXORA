@@ -49,7 +49,11 @@ from .models.models import (
 )
 
 def seed_database_if_empty():
-    """Initializes tables and populates with realistic enterprise seed data."""
+    """Seeds demo fixtures only in explicit development/test environments."""
+    runtime_env = (settings.APP_ENV or settings.ENVIRONMENT or "production").strip().lower()
+    if runtime_env not in {"development", "dev", "test", "testing"}:
+        print("[Database] Demo seeding disabled outside development/test environments.")
+        return
     active_engine = getattr(db_module, 'engine', engine)
     active_session = getattr(db_module, 'SessionLocal', SessionLocal)
     if not active_engine or not active_session:
