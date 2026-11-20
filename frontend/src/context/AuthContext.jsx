@@ -48,6 +48,13 @@ export const AuthProvider = ({ children }) => {
     return { success: true, user: userData };
   };
 
+  const demoLogin = async (email) => {
+    const res = await api.post('/auth/demo-login', { email });
+    const { access_token, user: userData, organization: orgData } = res.data;
+    setSession(access_token, userData, orgData);
+    return { success: true, user: userData };
+  };
+
   const register = async (formData) => {
     // If formData is an object with organization fields, call /auth/register-org
     if (formData.organization_name) {
