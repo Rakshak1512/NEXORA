@@ -143,7 +143,7 @@ async def create_monitored_website(
         name=data.name.strip(),
         url=norm_url,
         description=data.description,
-        is_verified=True, # Auto-verified for seamless self-service, ownership verification token available
+        is_verified=False, # Monitoring is blocked until domain ownership is proven
         verification_method=data.verification_method or "dns_txt",
         verification_token=verification_token,
         status="PENDING",
@@ -157,10 +157,7 @@ async def create_monitored_website(
     db.commit()
     db.refresh(site)
 
-    # 4. Trigger initial inspection asynchronously
-    asyncio_task = website_scheduler.check_single_website(site.id)
-    import asyncio
-    asyncio.create_task(asyncio_task)
+    # Do not probe or monitor an unverified domain. The owner must prove control first.
 
     return {
         "id": site.id,
@@ -169,7 +166,7 @@ async def create_monitored_website(
         "url": site.url,
         "verification_token": verification_token,
         "status": "created",
-        "message": "Website registered successfully. Initial availability probe scheduled."
+        "message": "Website registered. Complete domain ownership verification before monitoring can begin."
     }
 
 @router.get("/{website_id}")
