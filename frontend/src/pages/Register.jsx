@@ -15,7 +15,8 @@ const Register = () => {
   const [orgSize, setOrgSize] = useState('10-50');
   const [jobTitle, setJobTitle] = useState('Lead Systems Architect');
   const [country, setCountry] = useState('United States');
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [accountType, setAccountType] = useState('owner');
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,8 +41,12 @@ const Register = () => {
     e.preventDefault();
     setError('');
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long.');
+    if (accountType === 'admin') {
+      setError('Platform administrator accounts are invitation-only. Ask an existing Super Administrator to create your account.');
+      return;
+    }
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters long.');
       return;
     }
     if (confirmPassword && password !== confirmPassword) {
@@ -101,6 +106,11 @@ const Register = () => {
           </p>
         </div>
 
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          <button type="button" onClick={() => { setAccountType('owner'); setError(''); }} className={"rounded-xl border px-3 py-3 text-xs font-semibold " + (accountType === 'owner' ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300' : 'border-[#1A2740] text-slate-400')}>Workspace Owner</button>
+          <button type="button" onClick={() => { setAccountType('admin'); setError(''); }} className={"rounded-xl border px-3 py-3 text-xs font-semibold " + (accountType === 'admin' ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300' : 'border-[#1A2740] text-slate-400')}>Platform Admin</button>
+        </div>
+        {accountType === 'admin' && <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200">Platform administrator registration is invitation-only. For security, you cannot grant yourself administrator privileges. Ask an existing Super Administrator to create your account, then sign in using Platform Admin.</div>}
         {error && (
           <div className="mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2.5 text-rose-400 text-xs">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -183,7 +193,7 @@ const Register = () => {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 8 characters"
+                    placeholder="Min. 12 characters"
                     className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#0B1322] border border-[#1A2740] text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
                   />
                 </div>
@@ -374,7 +384,7 @@ const Register = () => {
         </form>
 
         <div className="mt-6 text-center text-xs text-slate-400">
-          Already have an enterprise account?{' '}
+          Already have an account?{' '}
           <Link to="/login" className="text-cyan-400 font-semibold hover:underline">
             Sign In
           </Link>
