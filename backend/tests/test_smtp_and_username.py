@@ -112,14 +112,12 @@ def test_user_name_rendered_in_all_email_templates():
         assert "Lead Architect" in args4[2]
 
 def test_database_contains_and_persists_user_name(client: TestClient):
-    """Verify full end-to-end registration flow ensures the user's full name is in the database."""
+    """Signup provisions the user only after the emailed OTP is verified."""
     from app.database import SessionLocal
-    db_session = SessionLocal()
-    try:
-        email = "enterprise-user@cynera-test.io"
-        full_name = "Chief Information Security Officer"
-
-        # 1. Register organization
+    delivered = []
+    email = "enterprise-user@cynera-test.io"
+    full_name = "Chief Information Security Officer"
+    with patch("app.api.auth.send_signup_otp", side_effect=lambda _email, _name, code, *_args: delivered.append(code)):
         reg_res = client.post("/api/auth/register-org", json={
             "full_name": full_name,
             "email": email,
@@ -127,55 +125,43 @@ def test_database_contains_and_persists_user_name(client: TestClient):
             "organization_name": "Test Sovereign Cloud",
             "job_title": "Director of Security"
         })
-        assert reg_res.status_code == 200
+        assert reg_res.status_code == 200, reg_res.text
         assert reg_res.json()["status"] == "otp_sent"
+        assert delivered, "Signup OTP email was not requested"
 
-        # Query OTP Challenge directly from test database
+    db_session = SessionLocal()
+    try:
         challenge = db_session.query(OTPChallenge).filter(
             OTPChallenge.email == email,
             OTPChallenge.purpose == "signup"
         ).order_by(OTPChallenge.created_at.desc()).first()
         assert challenge is not None
-
-        # Retrieve pending payload
         payload = json.loads(challenge.payload_data)
         assert payload["full_name"] == full_name
-
-        # 2. Register direct user to verify Profile database persistence
-        direct_email = "direct-user@cynera-test.io"
-        direct_name = "Dr. Robert Vance"
-        direct_res = client.post("/api/auth/register", json={
-            "email": direct_email,
-            "password": "Password9988!!",
-            "full_name": direct_name,
-            "role": "Security Analyst"
-        })
-        assert direct_res.status_code == 200
-        token_data = direct_res.json()
-        assert token_data["user"]["full_name"] == direct_name
-
-        # Query the database directly to ensure database contains the user name
-        db_profile = db_session.query(Profile).filter(Profile.email == direct_email).first()
-        assert db_profile is not None
-        assert db_profile.full_name == direct_name
-
-        # 3. Retrieve profile via /api/auth/me
-        token = token_data["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
-        me_res = client.get("/api/auth/me", headers=headers)
-        assert me_res.status_code == 200
-        me_data = me_res.json()
-        assert me_data["full_name"] == direct_name
-
-        # 4. Update profile name via PUT /api/auth/me
-        updated_name = "Dr. Robert Vance, PhD"
-        update_res = client.put("/api/auth/me", json={"full_name": updated_name}, headers=headers)
-        assert update_res.status_code == 200
-        assert update_res.json()["user"]["full_name"] == updated_name
-
-        # Re-query DB to verify updated name persisted in database
-        db_session.refresh(db_profile)
-        assert db_profile.full_name == updated_name
+        assert db_session.query(Profile).filter(Profile.email == email).first() is None
     finally:
         db_session.close()
 
+    verified = client.post("/api/auth/verify-otp", json={
+        "email": email, "otp": delivered[-1], "purpose": "signup"
+    })
+    assert verified.status_code == 200, verified.text
+    token = verified.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    me_res = client.get("/api/auth/me", headers=headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["full_name"] == full_name
+
+    db_session = SessionLocal()
+    try:
+        profile = db_session.query(Profile).filter(Profile.email == email).first()
+        assert profile is not None
+        assert profile.full_name == full_name
+        assert profile.is_verified is True
+        updated_name = "Chief Information Security Officer, PhD"
+        update_res = client.put("/api/auth/me", json={"full_name": updated_name}, headers=headers)
+        assert update_res.status_code == 200, update_res.text
+        db_session.refresh(profile)
+        assert profile.full_name == updated_name
+    finally:
+        db_session.close()
