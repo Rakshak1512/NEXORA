@@ -253,7 +253,7 @@ class WebsiteMonitoringScheduler:
                 try:
                     recent_checks = db.query(WebsiteCheckResult.response_time_ms).filter(
                         WebsiteCheckResult.website_id == site.id
-                    ).order_by(WebsiteCheckResult.checked_at.desc()).limit(20).all()
+                    ).order_by(WebsiteCheckResult.recorded_at.desc()).limit(20).all()
                     recent_latencies = [c[0] for c in recent_checks if c[0] is not None]
 
                     ai_eval = hybrid_ai_engine.evaluate_website_telemetry(
