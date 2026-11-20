@@ -62,7 +62,14 @@ def record_egress_proof(
 
 @router.get("/records")
 def list_egress_records(limit: int = 50, current_user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
-    limit = max(1, min(limit, 100))\n    records = db.query(EgressMetadata).filter(EgressMetadata.tenant_id == current_user.tenant_id).order_by(EgressMetadata.delivered_at.desc()).limit(limit).all()
+    limit = max(1, min(limit, 100))
+    records = (
+        db.query(EgressMetadata)
+        .filter(EgressMetadata.tenant_id == current_user.tenant_id)
+        .order_by(EgressMetadata.delivered_at.desc())
+        .limit(limit)
+        .all()
+    )
     return [
         {
             "id": r.id,
