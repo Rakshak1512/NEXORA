@@ -308,3 +308,4 @@ const DatabaseMonitoringView = () => {
 };
 
 export default DatabaseMonitoringView;
+

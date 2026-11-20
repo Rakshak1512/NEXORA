@@ -267,3 +267,4 @@ class WebsiteMonitoringScheduler:
             db.close()
 
 website_scheduler = WebsiteMonitoringScheduler()
+

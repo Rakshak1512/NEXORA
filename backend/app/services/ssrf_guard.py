@@ -90,3 +90,4 @@ def validate_public_url(url: str) -> Tuple[bool, str, str, List[str]]:
 
     normalized_url = parsed.geturl()
     return True, "URL is safe and verified.", normalized_url, resolved_ips
+

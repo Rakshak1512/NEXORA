@@ -150,3 +150,4 @@ class CyneraAPM:
         self._stop_event.set()
         if self._worker_thread.is_alive():
             self._worker_thread.join(timeout=2.0)
+

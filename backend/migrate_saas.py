@@ -22,3 +22,4 @@ from app.models.models import (
 print(f"[Migration] Creating all missing tables on database...")
 Base.metadata.create_all(bind=engine)
 print(f"[Migration] Tables created successfully!")
+

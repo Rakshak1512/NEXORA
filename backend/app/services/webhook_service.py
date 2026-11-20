@@ -100,3 +100,4 @@ async def dispatch_webhook_event(
         db.commit()
 
     return dispatched_count
+

@@ -76,3 +76,4 @@ pytest backend/tests/test_saas_products.py -v
 ```
 
 All 21 backend tests will execute against your live Supabase PostgreSQL instance.
+
