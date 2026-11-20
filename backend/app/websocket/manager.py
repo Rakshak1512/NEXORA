@@ -31,5 +31,16 @@ class WebSocketManager:
         for dead_conn in disconnected:
             self.disconnect(dead_conn)
 
+    async def broadcast_json(self, data: Dict[str, Any]):
+        payload = json.dumps(data)
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(payload)
+            except Exception:
+                disconnected.append(connection)
+        for dead_conn in disconnected:
+            self.disconnect(dead_conn)
+
 ws_manager = WebSocketManager()
 

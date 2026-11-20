@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { 
   Globe, Plus, RefreshCw, CheckCircle2, AlertTriangle, 
   XCircle, Clock, ShieldCheck, ShieldAlert, ArrowUpRight, 
-  Search, ExternalLink, Zap, Lock, Shield
+  Search, ExternalLink, Zap, Lock, Shield, Trash2, AlertCircle, X
 } from 'lucide-react';
 import api from '../services/api';
 import Button from '../components/common/Button';
@@ -14,6 +14,10 @@ const WebsiteMonitoringView = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [checkingId, setCheckingId] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const [siteToDelete, setSiteToDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Add Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -58,11 +62,42 @@ const WebsiteMonitoringView = () => {
   const handleManualCheck = async (e, id) => {
     e.preventDefault();
     e.stopPropagation();
+    setCheckingId(id);
+    setActionFeedback(null);
     try {
-      await api.post(`/websites/${id}/check`);
+      const res = await api.post(`/websites/${id}/check`);
+      setActionFeedback({
+        type: 'success',
+        message: `Synthetic probe completed: ${res.data.new_status} (${res.data.response_time_ms}ms, HTTP ${res.data.status_code || 200})`
+      });
       fetchWebsites();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Manual check failed');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Manual availability probe failed.'
+      });
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
+  const handleDeleteWebsite = async (id, name) => {
+    setDeletingId(id);
+    try {
+      await api.delete(`/websites/${id}`);
+      setActionFeedback({
+        type: 'success',
+        message: `Monitored target "${name}" removed successfully.`
+      });
+      setSiteToDelete(null);
+      fetchWebsites();
+    } catch (err) {
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to delete monitored target.'
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -248,6 +283,30 @@ const WebsiteMonitoringView = () => {
         </div>
       </div>
 
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)} 
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Website Cards Grid */}
       {loading ? (
         <div className="glass-panel p-12 rounded-xl border border-[#1A2740] text-center text-slate-400 font-mono text-xs">
@@ -362,14 +421,19 @@ const WebsiteMonitoringView = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={(e) => handleManualCheck(e, site.id)}
+                    disabled={checkingId === site.id}
                     title="Run On-Demand Synthetic Check"
-                    className="p-1.5 rounded-lg bg-[#070C14] hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300 border border-[#1A2740] transition text-[11px] flex items-center gap-1"
+                    className="p-1.5 rounded-lg bg-[#070C14] hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300 border border-[#1A2740] transition text-[11px] flex items-center gap-1 cursor-pointer"
                   >
-                    <Zap className="w-3 h-3 text-cyan-400" />
-                    <span>Check</span>
+                    {checkingId === site.id ? (
+                      <RefreshCw className="w-3 h-3 text-cyan-400 animate-spin" />
+                    ) : (
+                      <Zap className="w-3 h-3 text-cyan-400" />
+                    )}
+                    <span>{checkingId === site.id ? 'Checking...' : 'Check'}</span>
                   </button>
 
-                  {!site.ownership_verified && (
+                  {!site.is_verified && (
                     <button
                       onClick={() => { setVerifySite(site); setVerifyResult(null); }}
                       className="text-[10px] text-amber-400 hover:underline flex items-center gap-1"
@@ -378,7 +442,7 @@ const WebsiteMonitoringView = () => {
                       <span>Verify Domain</span>
                     </button>
                   )}
-                  {site.ownership_verified && (
+                  {site.is_verified && (
                     <span className="text-[10px] text-cyan-400/80 flex items-center gap-1 font-mono">
                       <ShieldCheck className="w-3 h-3 text-cyan-400" />
                       <span>Verified</span>
@@ -386,13 +450,23 @@ const WebsiteMonitoringView = () => {
                   )}
                 </div>
 
-                <Link
-                  to={`/websites/${site.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition"
-                >
-                  <span>Details</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSiteToDelete(site)}
+                    title="Remove Monitored Target"
+                    className="p-1.5 rounded-lg bg-[#070C14] hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 border border-[#1A2740] transition text-[11px] cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <Link
+                    to={`/websites/${site.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition"
+                  >
+                    <span>Details</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}
@@ -647,6 +721,45 @@ const WebsiteMonitoringView = () => {
                 className="text-xs"
               >
                 {verifyLoading ? 'Verifying...' : 'Validate Verification'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* DELETE CONFIRMATION MODAL */}
+      {siteToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md glass-panel p-6 rounded-2xl border border-rose-500/30 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-100">Remove Monitored Website</h3>
+                <p className="text-xs text-slate-400">This will stop all synthetic checks and delete historical metrics.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 bg-[#070C14] p-3 rounded-lg border border-[#1A2740]">
+              Are you sure you want to remove <strong className="text-slate-100">{siteToDelete.name}</strong> (<span className="text-cyan-400 font-mono">{siteToDelete.url}</span>)?
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSiteToDelete(null)}
+                disabled={deletingId === siteToDelete.id}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDeleteWebsite(siteToDelete.id, siteToDelete.name)}
+                disabled={deletingId === siteToDelete.id}
+              >
+                {deletingId === siteToDelete.id ? 'Removing...' : 'Confirm Remove'}
               </Button>
             </div>
           </div>

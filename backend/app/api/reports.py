@@ -1,16 +1,17 @@
 import json
 import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..database import get_db
 from ..models.models import (
     Profile, Organization, Tenant, Collector, Incident,
-    InfrastructureMetric, EgressMetadata, ReportRecord, utc_now
+    InfrastructureMetric, EgressMetadata, ReportRecord, MonitoredWebsite, utc_now
 )
 from ..schemas.schemas import ReportGenerateRequest, ReportResponse
 from ..auth.deps import get_current_user
+from ..services.pdf_generator import generate_security_pdf_report
 
 router = APIRouter(prefix="/reports", tags=["Reports & Analytics"])
 
@@ -119,4 +120,76 @@ def generate_report(
         summary_data=summary_data,
         created_at=record.created_at
     )
+
+@router.get("/{report_id}/download")
+def download_report(
+    report_id: str,
+    current_user: Profile = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generates and downloads a branded CYNERA PDF security & observability audit report."""
+    record = db.query(ReportRecord).filter(
+        ReportRecord.id == report_id,
+        ReportRecord.organization_id == current_user.organization_id
+    ).first()
+
+    if not record:
+        raise HTTPException(status_code=404, detail="Report record not found or access unauthorized.")
+
+    org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
+    org_name = org.name if org else "Enterprise Tenant"
+
+    try:
+        summary_data = json.loads(record.summary_json or "{}")
+    except Exception:
+        summary_data = {}
+
+    # Fetch organization websites
+    sites = db.query(MonitoredWebsite).filter(
+        MonitoredWebsite.organization_id == current_user.organization_id
+    ).all()
+    websites_data = [
+        {
+            "url": s.url,
+            "status": s.status,
+            "response_time_ms": s.last_response_time_ms,
+            "ssl_status": s.ssl_status,
+            "ssl_days_remaining": s.ssl_days_remaining,
+            "is_verified": s.is_verified
+        }
+        for s in sites
+    ]
+
+    # Fetch recent incidents
+    tenant_ids = [t.id for t in db.query(Tenant.id).filter(Tenant.organization_id == current_user.organization_id).all()]
+    incidents = db.query(Incident).filter(Incident.tenant_id.in_(tenant_ids)).order_by(Incident.created_at.desc()).limit(8).all()
+    incidents_data = [
+        {
+            "severity": inc.severity,
+            "title": inc.title,
+            "status": inc.status,
+            "created_at": inc.created_at.isoformat() if inc.created_at else "N/A"
+        }
+        for inc in incidents
+    ]
+
+    pdf_bytes = generate_security_pdf_report(
+        report_title=record.title,
+        organization_name=org_name,
+        time_range=record.time_range,
+        generated_by=current_user.full_name or current_user.email,
+        summary_data=summary_data,
+        websites=websites_data,
+        incidents=incidents_data
+    )
+
+    safe_filename = f"CYNERA_Security_Report_{record.id[:8]}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_filename}"'
+        }
+    )
+
 

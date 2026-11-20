@@ -13,6 +13,7 @@ from .website_checker import execute_website_check
 from .webhook_service import dispatch_webhook_event
 from .email_service import send_email, get_styled_email_template
 from ..websocket.manager import ws_manager
+from ..aiops.hybrid_security_engine import hybrid_ai_engine
 
 logger = logging.getLogger("cynera.scheduler")
 
@@ -44,6 +45,8 @@ class WebsiteMonitoringScheduler:
 
     async def run_due_checks(self):
         """Identifies and checks all due websites across all active organizations."""
+        if not SessionLocal:
+            return
         db = SessionLocal()
         try:
             now = utc_now()
@@ -242,6 +245,45 @@ class WebsiteMonitoringScheduler:
                         "latency_ms": result["response_time_ms"]
                     }
                 ))
+
+            # 5b. Hybrid AI/ML Anomaly Analysis (when site is online)
+            if not is_now_down:
+                try:
+                    recent_checks = db.query(WebsiteCheckResult.response_time_ms).filter(
+                        WebsiteCheckResult.website_id == site.id
+                    ).order_by(WebsiteCheckResult.checked_at.desc()).limit(20).all()
+                    recent_latencies = [c[0] for c in recent_checks if c[0] is not None]
+
+                    ai_eval = hybrid_ai_engine.evaluate_website_telemetry(
+                        url=site.url,
+                        status_code=result["status_code"] or 200,
+                        response_time_ms=result["response_time_ms"],
+                        ssl_days_remaining=result.get("ssl_days_remaining", 90),
+                        is_online=result["is_online"],
+                        recent_latencies=recent_latencies
+                    )
+
+                    if ai_eval.get("is_anomaly"):
+                        existing_alert = db.query(Alert).filter(
+                            Alert.organization_id == site.organization_id,
+                            Alert.resource_id == site.id,
+                            Alert.category == "ai_anomaly",
+                            Alert.status == "ACTIVE"
+                        ).first()
+                        if not existing_alert:
+                            anomaly_alert = Alert(
+                                organization_id=site.organization_id,
+                                title=f"AI Anomaly: {site.name} Performance Drift",
+                                severity=ai_eval.get("severity", "HIGH"),
+                                category="ai_anomaly",
+                                resource_name=site.name,
+                                resource_id=site.id,
+                                evidence=ai_eval.get("explanation") or "Statistical and ML anomaly score exceeded threshold.",
+                                status="ACTIVE"
+                            )
+                            db.add(anomaly_alert)
+                except Exception as ai_err:
+                    logger.warning(f"[Scheduler] AI anomaly evaluation non-fatal error: {ai_err}")
 
             db.commit()
 

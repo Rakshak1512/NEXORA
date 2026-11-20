@@ -10,9 +10,10 @@ class TelemetrySender:
     Implements exponential backoff and persistent queue acknowledgment.
     """
     def __init__(self):
+        credential = getattr(config, "auth_credential", None) or config.COLLECTOR_CREDENTIAL
         self.session = requests.Session()
         self.session.headers.update({
-            "Authorization": f"Bearer {config.COLLECTOR_CREDENTIAL}",
+            "Authorization": f"Bearer {credential}",
             "X-Collector-ID": config.COLLECTOR_ID,
             "X-Tenant-ID": config.TENANT_ID,
             "Content-Type": "application/json"

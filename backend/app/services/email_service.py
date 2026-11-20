@@ -1,17 +1,15 @@
 import os
+import re
+import smtplib
 import logging
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.header import Header
+from email.utils import formataddr
 from typing import Optional, Dict, Any
 from ..config import settings
 
 logger = logging.getLogger("cynera.email")
-
-# Try importing resend
-try:
-    import resend
-    RESEND_AVAILABLE = True
-except ImportError:
-    RESEND_AVAILABLE = False
-    logger.warning("Resend package not installed. Email dispatch will use development fallback logger.")
 
 def get_styled_email_template(title: str, preheader: str, body_html: str, action_code: Optional[str] = None) -> str:
     """Returns a responsive, premium CYNERA dark-themed HTML email."""
@@ -78,44 +76,81 @@ def get_styled_email_template(title: str, preheader: str, body_html: str, action
 </html>
 """
 
-def send_email(to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
-    """Sends an email via Resend when configured. Never fakes delivery when credentials are missing."""
-    api_key = (getattr(settings, "RESEND_API_KEY", "") or os.getenv("RESEND_API_KEY", "")).strip()
-    from_email = (getattr(settings, "RESEND_FROM_EMAIL", "") or os.getenv("RESEND_FROM_EMAIL", "")).strip()
-    
+def send_smtp_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None) -> Dict[str, Any]:
+    """Sends an email using standard SMTP with STARTTLS or direct SSL."""
+    host = settings.get_smtp_host()
+    port = settings.get_smtp_port()
+    username = settings.get_smtp_username()
+    password = settings.get_smtp_password()
+    from_email = settings.get_smtp_from_email()
+    from_name = settings.get_smtp_from_name()
+    use_ssl = getattr(settings, "SMTP_USE_SSL", False) or port == 465
+    use_tls = getattr(settings, "SMTP_USE_TLS", True) and not use_ssl
+    timeout = getattr(settings, "SMTP_TIMEOUT_SECONDS", 15)
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = formataddr((str(Header(from_name, "utf-8")), from_email))
+    msg["To"] = to_email
+    reply_to = getattr(settings, "SMTP_REPLY_TO", None) or "support@cynera.io"
+    if reply_to:
+        msg["Reply-To"] = reply_to
+
+    # Plain text fallback
+    plain_text = text_content or re.sub(r'<[^>]+>', ' ', html_content)
+    plain_text = re.sub(r'\s+', ' ', plain_text).strip()
+    msg.attach(MIMEText(plain_text, "plain", "utf-8"))
+    msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+    try:
+        if use_ssl:
+            server = smtplib.SMTP_SSL(host, port, timeout=timeout)
+        else:
+            server = smtplib.SMTP(host, port, timeout=timeout)
+            if use_tls:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+
+        if username and password:
+            server.login(username, password)
+
+        server.sendmail(from_email, [to_email], msg.as_string())
+        server.quit()
+        logger.info(f"[SMTP Success] Email dispatched to {to_email} via {host}:{port}")
+        return {
+            "success": True,
+            "provider": "smtp",
+            "host": host,
+            "status": "DELIVERED"
+        }
+    except Exception as e:
+        logger.error(f"[SMTP Error] Failed to send email via SMTP ({host}:{port}): {e}")
+        return {
+            "success": False,
+            "provider": "smtp",
+            "host": host,
+            "status": "DELIVERY_FAILED",
+            "error": str(e)
+        }
+
+def send_email(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None) -> Dict[str, Any]:
+    """Primary email dispatcher for CYNERA using standard corporate/cloud SMTP protocol."""
     # In test runner environment, return clean stub
     if "PYTEST_CURRENT_TEST" in os.environ or os.getenv("TESTING") == "true":
         return {"success": True, "provider": "test_stub", "status": "TEST_MODE"}
-    
-    if not api_key or not from_email:
-        logger.warning("[Email] RESEND_API_KEY or RESEND_FROM_EMAIL is not configured in backend/.env. Email delivery is BLOCKED BY CONFIGURATION.")
-        return {
-            "success": False,
-            "status": "BLOCKED_BY_CONFIGURATION",
-            "message": "Email dispatch is BLOCKED BY CONFIGURATION. Please enter RESEND_API_KEY and RESEND_FROM_EMAIL in backend/.env."
-        }
-    
-    if not RESEND_AVAILABLE:
-        return {
-            "success": False,
-            "status": "RESEND_PACKAGE_MISSING",
-            "message": "The 'resend' python package is not installed in the active environment."
-        }
-        
-    try:
-        resend.api_key = api_key
-        params = {
-            "from": from_email,
-            "to": [to_email],
-            "subject": subject,
-            "html": html_content
-        }
-        resp = resend.Emails.send(params)
-        logger.info(f"[Resend Success] Email sent to {to_email}. ID: {resp.get('id', 'N/A')}")
-        return {"success": True, "provider": "resend", "id": resp.get("id"), "status": "DELIVERED"}
-    except Exception as e:
-        logger.error(f"[Resend Error] Failed to send email via Resend: {e}")
-        return {"success": False, "provider": "resend", "status": "DELIVERY_FAILED", "error": str(e)}
+
+    # 1. Dispatch via SMTP
+    if settings.is_smtp_configured():
+        return send_smtp_email(to_email, subject, html_content, text_content)
+
+    # 2. Blocked by configuration if SMTP is unconfigured
+    logger.warning("[Email] SMTP is not configured in backend/.env. Email delivery is BLOCKED BY CONFIGURATION.")
+    return {
+        "success": False,
+        "status": "BLOCKED_BY_CONFIGURATION",
+        "message": "Email dispatch is BLOCKED BY CONFIGURATION. Please configure SMTP settings (SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL) in backend/.env."
+    }
 
 def send_signup_otp(to_email: str, full_name: str, otp_code: str, organization_name: str) -> Dict[str, Any]:
     subject = f"Your CYNERA Verification Code: {otp_code}"
@@ -159,10 +194,11 @@ def send_password_reset_otp(to_email: str, full_name: str, otp_code: str) -> Dic
     )
     return send_email(to_email, subject, html)
 
-def send_member_invite(to_email: str, invited_by_name: str, organization_name: str, role: str) -> Dict[str, Any]:
+def send_member_invite(to_email: str, invited_by_name: str, organization_name: str, role: str, to_name: Optional[str] = None) -> Dict[str, Any]:
     subject = f"You're invited to join {organization_name} on CYNERA"
+    recipient_greeting = f"<strong>{to_name}</strong>" if to_name else "Colleague"
     body = f"""
-    <p>Hello,</p>
+    <p>Hello {recipient_greeting},</p>
     <p><strong>{invited_by_name}</strong> has invited you to collaborate on the <strong>{organization_name}</strong> observability workspace on CYNERA as a <strong>{role}</strong>.</p>
     <p>CYNERA provides secure, AI-powered infrastructure monitoring with privacy-first two-tier telemetry.</p>
     <div style="margin: 24px 0; text-align: center;">

@@ -83,3 +83,4 @@ If unconfigured, it safely outputs:
 ## 6. Schema DDL Execution
 
 When `SUPABASE_DB_URL` is set, CYNERA automatically executes `Base.metadata.create_all(bind=engine)` upon backend startup via the FastAPI `lifespan` handler. All 24 model tables (organizations, profiles, monitored websites, network devices, telemetry metrics, alerts, incidents, approvals) will be automatically provisioned in your Supabase schema.
+

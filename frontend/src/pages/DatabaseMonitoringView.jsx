@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Database, Plus, RefreshCw, CheckCircle2, AlertTriangle, 
-  Activity, Clock, ShieldCheck, Zap, Trash2, Server
+  Activity, Clock, ShieldCheck, Zap, Trash2, Server,
+  AlertCircle, X
 } from 'lucide-react';
 import api from '../services/api';
 import Button from '../components/common/Button';
@@ -11,6 +12,9 @@ const DatabaseMonitoringView = () => {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [testingId, setTestingId] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const [dbToDelete, setDbToDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -43,14 +47,42 @@ const DatabaseMonitoringView = () => {
 
   const handleTestConnection = async (id) => {
     setTestingId(id);
+    setActionFeedback(null);
     try {
       const res = await api.post(`/databases/${id}/test`);
-      alert(res.data.message || 'Diagnostic check succeeded');
+      setActionFeedback({
+        type: 'success',
+        message: res.data.message || 'Database connection diagnostic verified successfully.'
+      });
       fetchDatabases();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Database probe failed');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Database connectivity probe failed.'
+      });
     } finally {
       setTestingId(null);
+    }
+  };
+
+  const handleDeleteDatabase = async (id, name) => {
+    setDeletingId(id);
+    setActionFeedback(null);
+    try {
+      await api.delete(`/databases/${id}`);
+      setActionFeedback({
+        type: 'success',
+        message: `Database integration "${name}" removed successfully.`
+      });
+      setDbToDelete(null);
+      fetchDatabases();
+    } catch (err) {
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to remove database integration.'
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -110,6 +142,30 @@ const DatabaseMonitoringView = () => {
         </div>
       </div>
 
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)} 
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Database Fleet Grid */}
       {loading ? (
         <div className="glass-panel p-12 rounded-xl border border-[#1A2740] text-center text-xs text-slate-400 font-mono">
@@ -128,65 +184,78 @@ const DatabaseMonitoringView = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {databases.map((db) => (
-            <div key={db.id} className="glass-panel p-5 rounded-xl border border-[#1A2740] hover:border-cyan-500/40 transition flex flex-col justify-between">
-              <div>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-100">{db.name}</h3>
-                    <p className="text-xs font-mono text-slate-400 mt-0.5">
-                      {db.username}@{db.host}:{db.port}/{db.database_name}
-                    </p>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                    db.status === 'HEALTHY' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400'
-                  }`}>
-                    {db.status}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-[#1A2740]">
-                  <div className="bg-[#070C14] p-2.5 rounded-lg border border-[#1A2740]">
-                    <span className="text-[10px] text-slate-500 block">Connection Pool</span>
-                    <span className="text-xs font-mono font-bold text-slate-200">
-                      {db.active_connections} / {db.max_connections} ({db.connection_saturation_percent}%)
+          {databases.map((db) => {
+            const saturationPct = db.pool_saturation_pct ?? db.connection_saturation_percent ?? 0;
+            const slowQueries = db.slow_queries_count ?? db.slow_queries_count_24h ?? 0;
+            return (
+              <div key={db.id} className="glass-panel p-5 rounded-xl border border-[#1A2740] hover:border-cyan-500/40 transition flex flex-col justify-between">
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-100">{db.name}</h3>
+                      <p className="text-xs font-mono text-slate-400 mt-0.5">
+                        {db.username_masked || db.username}@{db.host}:{db.port}/{db.database_name}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                      db.status === 'HEALTHY' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400'
+                    }`}>
+                      {db.status}
                     </span>
-                    <div className="w-full bg-[#1A2740] h-1.5 rounded-full mt-1.5 overflow-hidden">
-                      <div
-                        className={`h-full ${db.connection_saturation_percent > 80 ? 'bg-rose-500' : 'bg-cyan-400'}`}
-                        style={{ width: `${Math.min(100, db.connection_saturation_percent)}%` }}
-                      />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-[#1A2740]">
+                    <div className="bg-[#070C14] p-2.5 rounded-lg border border-[#1A2740]">
+                      <span className="text-[10px] text-slate-500 block">Connection Pool</span>
+                      <span className="text-xs font-mono font-bold text-slate-200">
+                        {db.active_connections} / {db.max_connections} ({saturationPct}%)
+                      </span>
+                      <div className="w-full bg-[#1A2740] h-1.5 rounded-full mt-1.5 overflow-hidden">
+                        <div
+                          className={`h-full ${saturationPct > 80 ? 'bg-rose-500' : 'bg-cyan-400'}`}
+                          style={{ width: `${Math.min(100, saturationPct)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="bg-[#070C14] p-2.5 rounded-lg border border-[#1A2740]">
+                      <span className="text-[10px] text-slate-500 block">Avg Query Latency</span>
+                      <span className="text-xs font-mono font-bold text-cyan-400">
+                        {db.avg_query_latency_ms} ms
+                      </span>
+                      <span className="text-[10px] text-slate-500 block mt-1">
+                        Slow queries: {slowQueries}
+                      </span>
                     </div>
                   </div>
+                </div>
 
-                  <div className="bg-[#070C14] p-2.5 rounded-lg border border-[#1A2740]">
-                    <span className="text-[10px] text-slate-500 block">Avg Query Latency</span>
-                    <span className="text-xs font-mono font-bold text-cyan-400">
-                      {db.avg_query_latency_ms} ms
-                    </span>
-                    <span className="text-[10px] text-slate-500 block mt-1">
-                      Slow queries: {db.slow_queries_count_24h}
-                    </span>
+                <div className="mt-4 pt-3 border-t border-[#1A2740] flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    Checked: {db.last_checked_at ? new Date(db.last_checked_at).toLocaleTimeString() : 'Pending'}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setDbToDelete(db)}
+                      title="Remove Database"
+                      className="p-1.5 rounded-lg bg-[#070C14] hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 border border-[#1A2740] transition text-xs cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleTestConnection(db.id)}
+                      disabled={testingId === db.id}
+                      className="px-2.5 py-1 rounded-lg bg-[#070C14] hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-[#1A2740] text-xs flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Zap className={`w-3 h-3 text-cyan-400 ${testingId === db.id ? 'animate-bounce' : ''}`} />
+                      <span>{testingId === db.id ? 'Testing...' : 'Test'}</span>
+                    </button>
                   </div>
                 </div>
               </div>
-
-              <div className="mt-4 pt-3 border-t border-[#1A2740] flex items-center justify-between">
-                <span className="text-[10px] text-slate-500 font-mono">
-                  Checked: {db.last_checked_at ? new Date(db.last_checked_at).toLocaleTimeString() : 'Pending'}
-                </span>
-
-                <button
-                  onClick={() => handleTestConnection(db.id)}
-                  disabled={testingId === db.id}
-                  className="px-2.5 py-1 rounded-lg bg-[#070C14] hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-[#1A2740] text-xs flex items-center gap-1.5 transition"
-                >
-                  <Zap className={`w-3 h-3 text-cyan-400 ${testingId === db.id ? 'animate-bounce' : ''}`} />
-                  <span>{testingId === db.id ? 'Testing...' : 'Test Connection'}</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -300,6 +369,45 @@ const DatabaseMonitoringView = () => {
                 <Button variant="primary" type="submit" disabled={addLoading} className="text-xs">Connect & Verify</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* DELETE CONFIRMATION MODAL */}
+      {dbToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md glass-panel p-6 rounded-2xl border border-rose-500/30 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-100">Remove Database Integration</h3>
+                <p className="text-xs text-slate-400">Stop monitoring connection pool and query latencies for this database.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 bg-[#070C14] p-3 rounded-lg border border-[#1A2740]">
+              Are you sure you want to disconnect <strong className="text-slate-100">{dbToDelete.name}</strong> (<span className="text-cyan-400 font-mono">{dbToDelete.host}:{dbToDelete.port}</span>)?
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDbToDelete(null)}
+                disabled={deletingId === dbToDelete.id}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDeleteDatabase(dbToDelete.id, dbToDelete.name)}
+                disabled={deletingId === dbToDelete.id}
+              >
+                {deletingId === dbToDelete.id ? 'Removing...' : 'Confirm Remove'}
+              </Button>
+            </div>
           </div>
         </div>
       )}

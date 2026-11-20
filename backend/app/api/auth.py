@@ -1,5 +1,6 @@
 import re
 import json
+import uuid
 import secrets
 import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,7 +13,8 @@ from ..models.models import (
 from ..schemas.schemas import (
     UserLogin, UserRegister, OrganizationRegisterRequest,
     OTPVerifyRequest, OTPResendRequest, ForgotPasswordRequest,
-    PasswordResetRequest, TokenResponse, UserProfileResponse
+    PasswordResetRequest, TokenResponse, UserProfileResponse,
+    ProfileUpdateRequest
 )
 from ..auth.jwt import verify_password, get_password_hash, create_access_token
 from ..auth.deps import get_current_user
@@ -503,5 +505,55 @@ def get_me(current_user: Profile = Depends(get_current_user), db: Session = Depe
             "plan": org.plan if org else "enterprise",
             "industry": org.industry if org else None,
             "country": org.country if org else None
+        } if org else None
+    }
+
+@router.put("/me")
+@router.patch("/me")
+@router.put("/profile")
+def update_profile(
+    data: ProfileUpdateRequest,
+    current_user: Profile = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Updates user profile information, ensuring full_name and user metadata persist to the database."""
+    if data.full_name is not None and data.full_name.strip():
+        current_user.full_name = data.full_name.strip()
+    if data.job_title is not None:
+        current_user.job_title = data.job_title.strip()
+    if data.phone is not None:
+        current_user.phone = data.phone.strip()
+    if data.two_factor_enabled is not None:
+        current_user.two_factor_enabled = data.two_factor_enabled
+
+    db.commit()
+    db.refresh(current_user)
+
+    org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
+    membership = db.query(OrganizationMembership).filter(
+        OrganizationMembership.organization_id == current_user.organization_id,
+        OrganizationMembership.user_id == current_user.id
+    ).first()
+
+    return {
+        "status": "profile_updated",
+        "message": "User profile updated successfully.",
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "role": membership.role if membership else current_user.role,
+            "job_title": current_user.job_title,
+            "phone": current_user.phone,
+            "two_factor_enabled": current_user.two_factor_enabled,
+            "organization_id": current_user.organization_id,
+            "tenant_id": current_user.tenant_id,
+            "is_active": current_user.is_active
+        },
+        "organization": {
+            "id": org.id if org else None,
+            "name": org.name if org else None,
+            "slug": org.slug if org else None,
+            "plan": org.plan if org else "enterprise"
         } if org else None
     }

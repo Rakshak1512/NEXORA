@@ -4,8 +4,11 @@ from typing import List, Union
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_backend_env = os.path.join(_backend_dir, ".env")
+
 class Settings(BaseSettings):
-    model_config = ConfigDict(env_file=".env", extra="ignore")
+    model_config = ConfigDict(env_file=(_backend_env, ".env"), extra="ignore")
 
     APP_NAME: str = "CYNERA"
     APP_ENV: str = "development"
@@ -21,6 +24,7 @@ class Settings(BaseSettings):
     SUPABASE_DB_URL: str = ""
     DATABASE_URL: str = ""
     SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     DB_ENGINE: str = "postgresql"
@@ -51,11 +55,19 @@ class Settings(BaseSettings):
     VERSION: str = "1.4.2"
     SIMULATED_MODE: bool = False
 
-    # Email & OTP (Resend API)
-    RESEND_API_KEY: str = ""
-    RESEND_FROM_EMAIL: str = ""
-    RESEND_FROM_NAME: str = "CYNERA"
-    RESEND_REPLY_TO: str = "support@cynera.io"
+    # Email & OTP (Standard SMTP Protocol)
+    EMAIL_PROVIDER: str = "smtp"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "CYNERA Security"
+    SMTP_REPLY_TO: str = "support@cynera.io"
+    SMTP_TIMEOUT_SECONDS: int = 15
+
     OTP_EXPIRY_MINUTES: int = 5
     OTP_LENGTH: int = 6
     OTP_REQUIRED: bool = True
@@ -90,8 +102,32 @@ class Settings(BaseSettings):
         url = self.get_active_db_url()
         return bool(url and (url.startswith("postgresql://") or url.startswith("sqlite://")))
 
-    def is_resend_configured(self) -> bool:
-        return bool(self.RESEND_API_KEY and not self.RESEND_API_KEY.startswith("re_your") and self.RESEND_FROM_EMAIL)
+    def get_smtp_host(self) -> str:
+        return (self.SMTP_HOST or os.getenv("MAIL_HOST") or os.getenv("SMTP_SERVER") or "").strip()
+
+    def get_smtp_port(self) -> int:
+        raw = self.SMTP_PORT or os.getenv("MAIL_PORT") or os.getenv("SMTP_PORT") or 587
+        try:
+            return int(raw)
+        except (ValueError, TypeError):
+            return 587
+
+    def get_smtp_username(self) -> str:
+        return (self.SMTP_USERNAME or os.getenv("MAIL_USERNAME") or os.getenv("SMTP_USER") or "").strip()
+
+    def get_smtp_password(self) -> str:
+        return (self.SMTP_PASSWORD or os.getenv("MAIL_PASSWORD") or os.getenv("SMTP_PASS") or "").strip()
+
+    def get_smtp_from_email(self) -> str:
+        return (self.SMTP_FROM_EMAIL or os.getenv("MAIL_FROM_ADDRESS") or os.getenv("MAIL_FROM") or "").strip()
+
+    def get_smtp_from_name(self) -> str:
+        return (self.SMTP_FROM_NAME or os.getenv("MAIL_FROM_NAME") or "CYNERA Security").strip()
+
+    def is_smtp_configured(self) -> bool:
+        host = self.get_smtp_host()
+        from_email = self.get_smtp_from_email()
+        return bool(host and from_email)
 
     def is_jwt_configured(self) -> bool:
         return bool(self.JWT_SECRET_KEY and self.JWT_SECRET_KEY.strip())

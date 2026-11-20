@@ -64,6 +64,12 @@ class UserProfileResponse(BaseModel):
     tenant_id: Optional[str] = None
     is_active: bool
 
+class ProfileUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    job_title: Optional[str] = None
+    phone: Optional[str] = None
+    two_factor_enabled: Optional[bool] = None
+
 # --- Organization & Member Management ---
 class OrganizationResponse(BaseModel):
     id: str

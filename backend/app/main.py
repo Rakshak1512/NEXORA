@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
+from . import database as db_module
 from .database import engine, Base, SessionLocal
 from .models.models import (
     Organization, Tenant, Profile, Collector, Incident,
@@ -37,6 +38,9 @@ from .api.databases import router as databases_router
 from .api.alerts import router as alerts_router
 from .api.webhooks import router as webhooks_router
 from .services.website_scheduler import website_scheduler
+from .services.rate_limiter import rate_limiter
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from .models.models import (
     MonitoredWebsite, WebsiteCheckResult, ApplicationService,
     DatabaseIntegration, Alert
@@ -44,8 +48,22 @@ from .models.models import (
 
 def seed_database_if_empty():
     """Initializes tables and populates with realistic enterprise seed data."""
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
+    active_engine = getattr(db_module, 'engine', engine)
+    active_session = getattr(db_module, 'SessionLocal', SessionLocal)
+    if not active_engine or not active_session:
+        print("[Database] Primary database engine is not configured. Startup seeding skipped (BLOCKED_BY_CONFIGURATION).")
+        return
+    try:
+        Base.metadata.create_all(bind=active_engine)
+    except Exception as e:
+        print(f"[Database] Warning: Could not complete DDL schema migration on active engine: {e}")
+        return
+
+    try:
+        db = active_session()
+    except Exception as e:
+        print(f"[Database] Warning: Could not open database session on active engine: {e}")
+        return
     try:
         if db.query(Organization).count() == 0:
             print("[Database] Seeding initial database tables and mock records...")
@@ -528,6 +546,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def cynera_security_rate_limit_middleware(request: Request, call_next):
+    """
+    Applies sliding-window rate limiting per IP address and endpoint sensitivity.
+    Allows high throughput for telemetry while protecting auth and sensitive endpoints.
+    """
+    if request.method == "OPTIONS" or request.url.path in ("/api/health", "/"):
+        return await call_next(request)
+
+    client_ip = rate_limiter.get_client_ip(request)
+    path = request.url.path
+
+    if any(auth_path in path for auth_path in ("/api/auth/login", "/api/auth/register", "/api/auth/verify-otp")):
+        allowed, remaining, retry_after = rate_limiter.check_rate_limit(f"auth:{client_ip}", max_requests=30, window_seconds=60)
+    else:
+        allowed, remaining, retry_after = rate_limiter.check_rate_limit(f"ip:{client_ip}", max_requests=240, window_seconds=60)
+
+    if not allowed:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail": "CYNERA Security: Rate limit exceeded. Please back off and retry shortly.",
+                "retry_after_seconds": retry_after
+            },
+            headers={
+                "Retry-After": str(retry_after),
+                "X-RateLimit-Remaining": "0"
+            }
+        )
+
+    response = await call_next(request)
+    response.headers["X-RateLimit-Remaining"] = str(remaining)
+    return response
 
 # Register Routers
 app.include_router(auth_router, prefix="/api")

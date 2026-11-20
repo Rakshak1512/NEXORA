@@ -5,36 +5,64 @@ import {
   FileCheck2, BrainCircuit, AlertOctagon, Sparkles, 
   CheckSquare, Globe, BarChart3, History, Sliders, 
   Settings, X, ShieldAlert, Building2, Key, FileText,
-  Layers, Database, BellRing, Webhook
+  Layers, Database, BellRing, Webhook, ShieldCheck
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
-const navItems = [
-  { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { path: '/websites', label: 'Websites & URLs', icon: Globe },
-  { path: '/alerts', label: 'Alert Center', icon: BellRing },
-  { path: '/infrastructure', label: 'Infrastructure', icon: Cpu },
-  { path: '/network', label: 'Network Monitoring', icon: Network },
-  { path: '/applications', label: 'APM & Services', icon: Layers },
-  { path: '/databases', label: 'Databases', icon: Database },
-  { path: '/collectors', label: 'Collectors', icon: Server },
-  { path: '/security', label: 'Security Monitoring', icon: Shield },
-  { path: '/egress-proof', label: 'Egress Proof Center', icon: FileCheck2, highlight: true },
-  { path: '/aiops', label: 'AIOps Intelligence', icon: BrainCircuit },
-  { path: '/incidents', label: 'Incidents', icon: AlertOctagon },
-  { path: '/recommendations', label: 'AI Recommendations', icon: Sparkles },
-  { path: '/approvals', label: 'Approval Center', icon: CheckSquare },
-  { path: '/webhooks', label: 'Webhooks & HMAC', icon: Webhook },
-  { path: '/global', label: 'Global Operations', icon: Globe },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/reports', label: 'Reports & Audits', icon: FileText },
-  { path: '/organization', label: 'Organization & Team', icon: Building2 },
-  { path: '/developer', label: 'Developer & API Keys', icon: Key },
-  { path: '/audit-logs', label: 'Audit Logs', icon: History },
-  { path: '/scenarios', label: 'Scenario Control', icon: Sliders },
-  { path: '/settings', label: 'Settings', icon: Settings }
+const navGroups = [
+  {
+    title: 'Core Observability',
+    items: [
+      { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+      { path: '/websites', label: 'Websites & Security', icon: Globe },
+      { path: '/alerts', label: 'Alert Center', icon: BellRing }
+    ]
+  },
+  {
+    title: 'Infrastructure & APM',
+    items: [
+      { path: '/applications', label: 'APM & Services', icon: Layers },
+      { path: '/databases', label: 'Databases', icon: Database },
+      { path: '/infrastructure', label: 'Infrastructure', icon: Cpu },
+      { path: '/network', label: 'Network Probes', icon: Network },
+      { path: '/collectors', label: 'Edge Collectors', icon: Server }
+    ]
+  },
+  {
+    title: 'AI & Zero Trust',
+    items: [
+      { path: '/aiops', label: 'AIOps Engine', icon: BrainCircuit },
+      { path: '/incidents', label: 'Incidents', icon: AlertOctagon },
+      { path: '/recommendations', label: 'AI Remediation', icon: Sparkles },
+      { path: '/egress-proof', label: 'Zero-Trust Egress', icon: FileCheck2, highlight: true }
+    ]
+  },
+  {
+    title: 'Audits & Management',
+    items: [
+      { path: '/reports', label: 'PDF Reports & Audits', icon: FileText },
+      { path: '/organization', label: 'Team & Organization', icon: Building2 },
+      { path: '/developer', label: 'API Keys & Integration', icon: Key },
+      { path: '/webhooks', label: 'Webhooks & HMAC', icon: Webhook },
+      { path: '/settings', label: 'Settings', icon: Settings }
+    ]
+  },
+  {
+    title: 'Super Admin',
+    adminOnly: true,
+    items: [
+      { path: '/approvals', label: 'Approval Registry', icon: CheckSquare },
+      { path: '/global', label: 'Global Operations', icon: Globe },
+      { path: '/analytics', label: 'Platform Benchmarks', icon: BarChart3 },
+      { path: '/audit-logs', label: 'System Audit Logs', icon: History },
+      { path: '/scenarios', label: 'Fault Simulation', icon: Sliders }
+    ]
+  }
 ];
 
 const Sidebar = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'Super Administrator';
   return (
     <>
       {/* Mobile Backdrop */}
@@ -72,31 +100,41 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         {/* Navigation list */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
+        <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
+          {navGroups.map((group) => {
+            if (group.adminOnly && !isSuperAdmin) return null;
             return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={onClose}
-                className={({ isActive }) => `
-                  flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 group
-                  ${isActive 
-                    ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-semibold shadow-xs' 
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#131F36]'
-                  }
-                  ${item.highlight ? 'border border-cyan-500/20 bg-cyan-950/20' : ''}
-                `}
-              >
-                <Icon className={`w-4 h-4 transition-colors group-hover:text-cyan-400 ${item.highlight ? 'text-cyan-400' : ''}`} />
-                <span className="truncate">{item.label}</span>
-                {item.highlight && (
-                  <span className="ml-auto text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">
-                    Proof
-                  </span>
-                )}
-              </NavLink>
+              <div key={group.title} className="space-y-1">
+                <div className="px-3 text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                  {group.title}
+                </div>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={onClose}
+                      className={({ isActive }) => `
+                        flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 group
+                        ${isActive 
+                          ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 font-semibold shadow-xs' 
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-[#131F36]'
+                        }
+                        ${item.highlight ? 'border border-cyan-500/20 bg-cyan-950/20' : ''}
+                      `}
+                    >
+                      <Icon className={`w-4 h-4 transition-colors group-hover:text-cyan-400 ${item.highlight ? 'text-cyan-400' : ''}`} />
+                      <span className="truncate">{item.label}</span>
+                      {item.highlight && (
+                        <span className="ml-auto text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">
+                          Proof
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>

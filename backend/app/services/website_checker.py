@@ -1,3 +1,4 @@
+import re
 import time
 import ssl
 import socket
@@ -235,7 +236,24 @@ async def verify_website_ownership(
     if not hostname:
         return False, "Invalid target domain."
 
-    # Method 2: HTTP File Check (/.well-known/cynera-verify.txt)
+    # Method 2: HTML Meta Tag Check (<meta name="cynera-verification" content="{token}">)
+    if method == "meta_tag":
+        try:
+            async with httpx.AsyncClient(timeout=10.0, verify=False, follow_redirects=True) as client:
+                res = await client.get(url, headers={"User-Agent": "CYNERA-Domain-Verifier/1.4"})
+                if res.status_code == 200:
+                    text = res.text
+                    # Check for cynera-verification or cynera-site-verification meta tags
+                    pattern = rf'<meta\s+[^>]*name=["\'](?:cynera-verification|cynera-site-verification)["\'][^>]*content=["\']{re.escape(expected_token)}["\']'
+                    pattern_alt = rf'<meta\s+[^>]*content=["\']{re.escape(expected_token)}["\'][^>]*name=["\'](?:cynera-verification|cynera-site-verification)["\']'
+                    if re.search(pattern, text, re.IGNORECASE) or re.search(pattern_alt, text, re.IGNORECASE) or expected_token in text:
+                        return True, "Ownership verified successfully via HTML meta tag."
+                    return False, f"HTML meta tag with verification token '{expected_token}' not detected on {url}."
+                return False, f"Verification failed: Target returned HTTP status {res.status_code}."
+        except Exception as e:
+            return False, f"HTML meta tag verification request failed: {e}"
+
+    # Method 3: HTTP File Check (/.well-known/cynera-verify.txt)
     if method == "http_file":
         verify_url = f"{parsed.scheme}://{hostname}/.well-known/cynera-verify.txt"
         try:
@@ -247,7 +265,7 @@ async def verify_website_ownership(
         except Exception as e:
             return False, f"HTTP verification request failed: {e}"
 
-    # Method 3: DNS TXT Record verification
+    # Method 4: DNS TXT Record verification
     if method == "dns_txt":
         try:
             # Check using socket / dnspython if installed or fallback

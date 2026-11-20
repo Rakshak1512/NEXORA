@@ -1,5 +1,4 @@
 import os
-import sys
 import logging
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
@@ -14,21 +13,8 @@ Base = declarative_base()
 # Connection string precedence: SUPABASE_DB_URL > DATABASE_URL
 raw_db_url = settings.get_active_db_url()
 
-# Check for automated test suite execution
-is_testing = (
-    "pytest" in sys.modules
-    or "PYTEST_CURRENT_TEST" in os.environ
-    or os.environ.get("TESTING") == "true"
-)
-
-if not raw_db_url and is_testing:
-    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    test_db_path = os.path.join(backend_dir, "test_cynera.db").replace(os.sep, "/")
-    raw_db_url = f"sqlite:///{test_db_path}"
-    logger.info("[Database] Automated test mode detected. Using isolated test SQLite database.")
-
 # Status flag
-IS_DATABASE_CONFIGURED = bool(settings.get_active_db_url())
+IS_DATABASE_CONFIGURED = bool(raw_db_url)
 DATABASE_STATUS = "CONNECTED" if IS_DATABASE_CONFIGURED else "BLOCKED_BY_CONFIGURATION"
 
 if raw_db_url:
@@ -61,7 +47,7 @@ else:
     logger.warning("[Database] No database URL configured in backend/.env. Database functionality is BLOCKED BY CONFIGURATION.")
 
 def get_db():
-    """Dependency for injecting SQLAlchemy database sessions with strict configuration guards."""
+    """Dependency for injecting SQLAlchemy database sessions with strict configuration guards and safe error handling."""
     if not SessionLocal:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -70,8 +56,19 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Database Error] Session error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Database connection or transaction error: {str(e)}"
+        )
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            pass
 
 def test_database_connection() -> dict:
     """Executes a real query against the target database to verify live connectivity."""
@@ -99,10 +96,10 @@ def test_database_connection() -> dict:
 
 # Optional Supabase Client Wrapper (if credentials are provided)
 supabase_client = None
-if settings.SUPABASE_URL and (settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY):
+if settings.SUPABASE_URL and (settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY or settings.SUPABASE_KEY):
     try:
         from supabase import create_client
-        key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY
+        key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY or settings.SUPABASE_KEY
         supabase_client = create_client(settings.SUPABASE_URL, key)
         logger.info("[Supabase Client] Successfully initialized Supabase API client.")
     except Exception as e:

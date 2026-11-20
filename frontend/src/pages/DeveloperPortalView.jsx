@@ -27,6 +27,7 @@ const DeveloperPortalView = () => {
   // Copy helpers
   const [copiedKeyId, setCopiedKeyId] = useState(null);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   // Active code doc tab
   const [codeLang, setCodeLang] = useState('python'); // 'python', 'curl', 'javascript'
@@ -62,6 +63,7 @@ const DeveloperPortalView = () => {
 
   const handleCreateKey = async (e) => {
     e.preventDefault();
+    setActionFeedback(null);
     try {
       const res = await api.post('/developer/keys', {
         name: newKeyName,
@@ -70,24 +72,39 @@ const DeveloperPortalView = () => {
       setCreatedKeySecret(res.data.secret_key);
       setShowCreateKeyModal(false);
       setNewKeyName('');
+      setActionFeedback({
+        type: 'success',
+        message: `API Key "${res.data.name}" generated. Copy your secret key now—it will not be shown again!`
+      });
       fetchKeys();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to create API key');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to create API key.'
+      });
     }
   };
 
-  const handleDeleteKey = async (id) => {
-    if (!window.confirm('Are you sure you want to permanently revoke this API key?')) return;
+  const handleDeleteKey = async (id, name) => {
+    setActionFeedback(null);
     try {
       await api.delete(`/developer/keys/${id}`);
+      setActionFeedback({
+        type: 'success',
+        message: `API Key "${name || id}" revoked successfully.`
+      });
       fetchKeys();
     } catch (err) {
-      alert('Failed to revoke API key');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to revoke API key.'
+      });
     }
   };
 
   const handleCreateWidget = async (e) => {
     e.preventDefault();
+    setActionFeedback(null);
     try {
       await api.post('/developer/widgets', {
         name: newWidgetName,
@@ -95,19 +112,33 @@ const DeveloperPortalView = () => {
       });
       setShowCreateWidgetModal(false);
       setNewWidgetName('');
+      setActionFeedback({
+        type: 'success',
+        message: `Embed widget "${newWidgetName}" created successfully.`
+      });
       fetchWidgets();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to create embed widget');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to create embed widget.'
+      });
     }
   };
 
-  const handleDeleteWidget = async (id) => {
-    if (!window.confirm('Are you sure you want to deactivate this embed widget token?')) return;
+  const handleDeleteWidget = async (id, name) => {
+    setActionFeedback(null);
     try {
       await api.delete(`/developer/widgets/${id}`);
+      setActionFeedback({
+        type: 'success',
+        message: `Widget token "${name || id}" removed successfully.`
+      });
       fetchWidgets();
     } catch (err) {
-      alert('Failed to delete widget token');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to delete widget token.'
+      });
     }
   };
 
@@ -174,6 +205,30 @@ const DeveloperPortalView = () => {
           </button>
         </div>
       </div>
+
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <Check className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)} 
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Secret Key Revealed Once Modal */}
       {createdKeySecret && (

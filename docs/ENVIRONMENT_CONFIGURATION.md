@@ -58,12 +58,18 @@ DB_USER=
 DB_PASSWORD=
 
 # --------------------------------------------------------------------
-# EMAIL & OTP SERVICE (Resend API)
+# EMAIL & OTP SERVICE (Standard Corporate & Cloud SMTP Protocol)
 # --------------------------------------------------------------------
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=
-RESEND_FROM_NAME=CYNERA Security Team
-RESEND_REPLY_TO=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_USE_TLS=true
+SMTP_USE_SSL=false
+SMTP_FROM_EMAIL=
+SMTP_FROM_NAME="CYNERA Security Team"
+SMTP_REPLY_TO=support@cynera.io
+SMTP_TIMEOUT_SECONDS=15
 
 # OTP Security Parameters
 OTP_EXPIRY_MINUTES=5
@@ -141,3 +147,4 @@ SIMULATED_MODE=false
    - Never prints plaintext OTPs to console or log files.
 3. **CORS:**
    - Automatically supports `localhost` and `127.0.0.1` on ports `3000` (Vite dev) and `5173` (Vite default), plus any custom origin specified in `FRONTEND_URL`.
+

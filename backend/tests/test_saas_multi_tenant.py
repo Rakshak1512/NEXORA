@@ -13,6 +13,7 @@ def test_saas_multi_tenant_registration_and_otp_flow(client):
         "email": email,
         "password": "SecurePassword2026!",
         "organization_name": org_name,
+        "website_url": "https://example-enterprise.com",
         "industry": "FinTech",
         "org_size": "50-200",
         "country": "Germany",

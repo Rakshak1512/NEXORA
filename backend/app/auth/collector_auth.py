@@ -17,7 +17,13 @@ def verify_collector_credentials(
         )
 
     token = authorization.replace("Bearer ", "").strip()
-    if token != settings.COLLECTOR_AUTH_SECRET:
+    valid_secrets = {
+        s.strip()
+        for s in [getattr(settings, "COLLECTOR_CREDENTIAL", None), getattr(settings, "COLLECTOR_AUTH_SECRET", None)]
+        if s and s.strip()
+    }
+
+    if not valid_secrets or token not in valid_secrets:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid collector authentication secret."

@@ -49,6 +49,9 @@ const NetworkMonitoringView = () => {
   const [editingDevice, setEditingDevice] = useState(null);
   const [selectedDeviceHistory, setSelectedDeviceHistory] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [deviceToDelete, setDeviceToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -140,15 +143,29 @@ const NetworkMonitoringView = () => {
     setFormError('');
   };
 
-  const handleDeleteDevice = async (deviceId, name) => {
-    if (!window.confirm(`Are you sure you want to delete network device '${name}'?`)) {
-      return;
-    }
+  const handleDeleteDevice = (dev) => {
+    setDeviceToDelete(dev);
+  };
+
+  const confirmDeleteDevice = async () => {
+    if (!deviceToDelete) return;
+    setIsDeleting(true);
+    setActionFeedback(null);
     try {
-      await api.delete(`/network/devices/${deviceId}`);
+      await api.delete(`/network/devices/${deviceToDelete.id}`);
+      setActionFeedback({
+        type: 'success',
+        message: `Network device "${deviceToDelete.name}" (${deviceToDelete.ip_address}) deleted.`
+      });
+      setDeviceToDelete(null);
       await fetchNetworkData();
     } catch (e) {
-      console.error("Delete device error:", e);
+      setActionFeedback({
+        type: 'error',
+        message: e.response?.data?.detail || 'Failed to delete network device.'
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -245,6 +262,30 @@ const NetworkMonitoringView = () => {
           </Button>
         </div>
       </div>
+
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-4 rounded-xl text-xs flex items-center justify-between border ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)}
+            className="text-slate-400 hover:text-slate-200 text-xs px-2 py-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 2. Key Network Performance Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
@@ -436,7 +477,7 @@ const NetworkMonitoringView = () => {
                           </button>
 
                           <button
-                            onClick={() => handleDeleteDevice(dev.id, dev.name)}
+                            onClick={() => handleDeleteDevice(dev)}
                             title="Delete Device"
                             className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition cursor-pointer"
                           >
@@ -748,6 +789,39 @@ const NetworkMonitoringView = () => {
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deviceToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-sm p-6 rounded-2xl border border-rose-500/30 shadow-2xl relative">
+            <h3 className="text-sm font-bold text-rose-300 flex items-center gap-2 mb-2">
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              Delete Network Device
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              Are you sure you want to delete network device <strong className="text-white">{deviceToDelete.name}</strong> ({deviceToDelete.ip_address})? Active probing and historical metrics will be removed.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setDeviceToDelete(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmDeleteDevice}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
             </div>
           </div>
         </div>

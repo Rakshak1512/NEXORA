@@ -26,6 +26,7 @@ class WebsiteCreateRequest(BaseModel):
     monitoring_interval_seconds: Optional[int] = 60
     expected_status_codes: Optional[Any] = [200, 201, 204, 301, 302]
     timeout_seconds: Optional[int] = 10
+    check_timeout_seconds: Optional[int] = None
     verification_method: Optional[str] = "dns_txt"
 
 class WebsiteUpdateRequest(BaseModel):
@@ -43,6 +44,7 @@ class EndpointCreateRequest(BaseModel):
     method: Optional[str] = "GET"
     http_method: Optional[str] = None
     expected_status_code: Optional[int] = 200
+    expected_status: Optional[int] = None
 
 # --- Endpoints ---
 @router.get("")
@@ -147,7 +149,7 @@ async def create_monitored_website(
         status="PENDING",
         monitoring_interval_seconds=data.monitoring_interval_seconds or 60,
         expected_status_codes=json.dumps(exp_codes),
-        timeout_seconds=data.timeout_seconds or 10,
+        timeout_seconds=data.timeout_seconds or data.check_timeout_seconds or 10,
         is_active=True,
         dns_resolved_ips=json.dumps(resolved_ips)
     )
@@ -286,6 +288,22 @@ async def trigger_manual_check(
     return {
         "status": "check_completed",
         "website_id": site.id,
+        "website": {
+            "id": site.id,
+            "name": site.name,
+            "url": site.url,
+            "status": site.status,
+            "last_status_code": site.last_status_code,
+            "last_response_time_ms": site.last_response_time_ms,
+            "ssl_status": site.ssl_status,
+            "ssl_issuer": site.ssl_issuer,
+            "ssl_days_remaining": site.ssl_days_remaining,
+            "dns_status": site.dns_status,
+            "dns_lookup_time_ms": site.dns_lookup_time_ms,
+            "uptime_percentage_24h": site.uptime_percentage_24h,
+            "is_verified": site.is_verified,
+            "last_checked_at": site.last_checked_at.isoformat() if site.last_checked_at else None
+        },
         "new_status": site.status,
         "status_code": site.last_status_code,
         "response_time_ms": site.last_response_time_ms,
@@ -399,7 +417,7 @@ def add_website_endpoint(
         name=data.name.strip(),
         endpoint_url=norm_url,
         method=data.method or data.http_method or "GET",
-        expected_status_code=data.expected_status_code or 200,
+        expected_status_code=data.expected_status_code or data.expected_status or 200,
         is_active=True
     )
     db.add(endpoint)

@@ -78,3 +78,4 @@ When third-party external services are unconfigured:
 2. **Resend Email Service**: If `RESEND_API_KEY` is empty in `backend/.env`, OTP generation returns:  
    `{"status": "BLOCKED_BY_CONFIGURATION", "message": "Email delivery service is unconfigured. Set RESEND_API_KEY in backend/.env."}`  
    Plaintext OTPs are strictly prevented from appearing in terminal logs.
+

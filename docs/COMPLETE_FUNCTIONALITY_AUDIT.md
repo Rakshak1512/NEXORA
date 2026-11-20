@@ -226,3 +226,4 @@ All modules operate under strict tenant isolation via `organization_id` scoping,
   - "Trigger Scenario": Injects synthetic telemetry burst into sandbox pipeline to demonstrate AIOps anomaly detection and incident correlation.
   - "Reset All": Clears simulated anomalies back to baseline.
 - **Backend Endpoints:** `POST /api/scenarios/trigger`, `POST /api/scenarios/reset`.
+

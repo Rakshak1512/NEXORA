@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Webhook, Plus, RefreshCw, Send, CheckCircle2, 
-  AlertTriangle, Clock, Trash2, Key, Copy, Check, ExternalLink
+  AlertTriangle, Clock, Trash2, Key, Copy, Check, ExternalLink,
+  AlertCircle, X
 } from 'lucide-react';
 import api from '../services/api';
 import Button from '../components/common/Button';
@@ -14,6 +15,7 @@ const WebhookManagementView = () => {
   const [testingId, setTestingId] = useState(null);
   const [testResult, setTestResult] = useState(null);
   const [copiedSecret, setCopiedSecret] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   const [form, setForm] = useState({
     name: 'Slack Alerts Webhook',
@@ -45,45 +47,70 @@ const WebhookManagementView = () => {
   const handleTestWebhook = async (id) => {
     setTestingId(id);
     setTestResult(null);
+    setActionFeedback(null);
     try {
       const res = await api.post(`/webhooks/${id}/test`);
       setTestResult(res.data);
+      setActionFeedback({
+        type: 'success',
+        message: `Webhook ping dispatched successfully (HTTP ${res.data.status_code || 200}).`
+      });
       fetchData();
     } catch (err) {
       setTestResult({
         success: false,
         detail: err.response?.data?.detail || 'Webhook test failed'
       });
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Webhook test transmission failed.'
+      });
     } finally {
       setTestingId(null);
     }
   };
 
-  const handleDeleteWebhook = async (id) => {
-    if (!window.confirm('Delete this webhook endpoint?')) return;
+  const handleDeleteWebhook = async (id, name) => {
+    setActionFeedback(null);
     try {
       await api.delete(`/webhooks/${id}`);
+      setActionFeedback({
+        type: 'success',
+        message: `Webhook endpoint "${name || id}" removed successfully.`
+      });
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to delete webhook');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to delete webhook endpoint.'
+      });
     }
   };
 
   const handleCreateWebhook = async (e) => {
     e.preventDefault();
     setAddLoading(true);
+    setActionFeedback(null);
     try {
       await api.post('/webhooks', form);
       setShowAddModal(false);
+      const createdName = form.name;
       setForm({
         name: '',
         url: '',
         events: ['website.down', 'website.recovered'],
         secret: ''
       });
+      setActionFeedback({
+        type: 'success',
+        message: `Webhook endpoint "${createdName}" registered with HMAC verification.`
+      });
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to create webhook');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to create webhook endpoint.'
+      });
     } finally {
       setAddLoading(false);
     }
@@ -121,6 +148,30 @@ const WebhookManagementView = () => {
           </Button>
         </div>
       </div>
+
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-4 rounded-xl text-xs flex items-center justify-between border ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)}
+            className="text-slate-400 hover:text-slate-200 text-xs px-2 py-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {testResult && (
         <div className={`p-4 rounded-xl text-xs flex items-center justify-between ${

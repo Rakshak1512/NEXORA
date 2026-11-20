@@ -158,7 +158,7 @@ def invite_member(
     db.commit()
 
     # Dispatch branded invitation email
-    send_member_invite(clean_email, current_user.full_name, org.name, data.role)
+    send_member_invite(clean_email, current_user.full_name, org.name, data.role, to_name=data.full_name)
 
     return {
         "status": "invited",

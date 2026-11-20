@@ -42,6 +42,8 @@ const OrganizationManagementView = () => {
   const [editCountry, setEditCountry] = useState('');
   const [editSize, setEditSize] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState(null);
+  const [removingMember, setRemovingMember] = useState(false);
 
   const fetchOrgAndMembers = async () => {
     setLoading(true);
@@ -103,14 +105,22 @@ const OrganizationManagementView = () => {
     }
   };
 
-  const handleRemoveMember = async (memberId) => {
-    if (!window.confirm('Are you sure you want to remove this member from the organization?')) return;
+  const handleRemoveMember = (member) => {
+    setMemberToRemove(member);
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+    setRemovingMember(true);
     try {
-      await api.delete(`/organization/members/${memberId}`);
-      setSuccessMsg('Member removed from organization.');
+      await api.delete(`/organization/members/${memberToRemove.membership_id}`);
+      setSuccessMsg(`Member ${memberToRemove.full_name || memberToRemove.email} removed from organization.`);
+      setMemberToRemove(null);
       fetchOrgAndMembers();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to remove member.');
+    } finally {
+      setRemovingMember(false);
     }
   };
 
@@ -305,7 +315,7 @@ const OrganizationManagementView = () => {
                   <td className="px-5 py-3.5 text-right">
                     {m.user_id !== user?.id && (
                       <button
-                        onClick={() => handleRemoveMember(m.membership_id)}
+                        onClick={() => handleRemoveMember(m)}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
                         title="Remove member"
                       >
@@ -480,6 +490,39 @@ const OrganizationManagementView = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Confirmation Modal */}
+      {memberToRemove && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="glass-panel w-full max-w-sm p-6 rounded-2xl border border-rose-500/30 shadow-2xl relative">
+            <h3 className="text-sm font-bold text-rose-300 flex items-center gap-2 mb-2">
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              Remove Team Member
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+              Are you sure you want to revoke membership for <strong className="text-white">{memberToRemove.full_name || memberToRemove.email}</strong>? They will lose access to organization resources immediately.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setMemberToRemove(null)}
+                disabled={removingMember}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmRemoveMember}
+                disabled={removingMember}
+              >
+                {removingMember ? 'Removing...' : 'Confirm Remove'}
+              </Button>
+            </div>
           </div>
         </div>
       )}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   AlertOctagon, CheckCircle2, Clock, AlertTriangle, 
-  ShieldAlert, RefreshCw, Check, Filter, Search
+  ShieldAlert, RefreshCw, Check, Filter, Search,
+  AlertCircle, X
 } from 'lucide-react';
 import api from '../services/api';
 import Button from '../components/common/Button';
@@ -12,6 +13,8 @@ const AlertCenterView = () => {
   const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [actingId, setActingId] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   const fetchAlerts = async () => {
     try {
@@ -35,20 +38,30 @@ const AlertCenterView = () => {
   }, [severityFilter, statusFilter]);
 
   const handleAcknowledge = async (id) => {
+    setActingId(id);
+    setActionFeedback(null);
     try {
       await api.post(`/alerts/${id}/acknowledge`);
+      setActionFeedback({ type: 'success', message: 'Alert acknowledged successfully.' });
       fetchAlerts();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to acknowledge alert');
+      setActionFeedback({ type: 'error', message: err.response?.data?.detail || 'Failed to acknowledge alert' });
+    } finally {
+      setActingId(null);
     }
   };
 
   const handleResolve = async (id) => {
+    setActingId(id);
+    setActionFeedback(null);
     try {
       await api.post(`/alerts/${id}/resolve`);
+      setActionFeedback({ type: 'success', message: 'Alert marked as resolved.' });
       fetchAlerts();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to resolve alert');
+      setActionFeedback({ type: 'error', message: err.response?.data?.detail || 'Failed to resolve alert' });
+    } finally {
+      setActingId(null);
     }
   };
 
@@ -98,6 +111,30 @@ const AlertCenterView = () => {
           <span className="text-[10px] text-slate-500">Informational system logs</span>
         </div>
       </div>
+
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)} 
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Filters Bar */}
       <div className="glass-panel p-3 rounded-xl border border-[#1A2740] flex flex-wrap items-center justify-between gap-3">

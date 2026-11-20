@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { 
   Globe, ArrowLeft, RefreshCw, Zap, CheckCircle2, 
   AlertTriangle, XCircle, Clock, ShieldCheck, ShieldAlert, 
-  Lock, ExternalLink, Plus, Trash2, Activity, Server
+  Lock, ExternalLink, Plus, Trash2, Activity, Server,
+  AlertCircle, X
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer 
@@ -17,6 +18,7 @@ const WebsiteDetailsView = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   // New Endpoint Modal
   const [showAddEndpoint, setShowAddEndpoint] = useState(false);
@@ -59,12 +61,22 @@ const WebsiteDetailsView = () => {
 
   const handleManualCheck = async () => {
     setChecking(true);
+    setActionFeedback(null);
     try {
       const res = await api.post(`/websites/${id}/check`);
-      setSite(res.data.website);
+      if (res.data.website) {
+        setSite(res.data.website);
+      }
+      setActionFeedback({
+        type: 'success',
+        message: `On-demand synthetic check completed: ${res.data.new_status || 'ONLINE'} (${res.data.response_time_ms || 0}ms)`
+      });
       fetchSiteDetails();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Manual check execution failed');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Manual check execution failed.'
+      });
     } finally {
       setChecking(false);
     }
@@ -73,6 +85,7 @@ const WebsiteDetailsView = () => {
   const handleAddEndpoint = async (e) => {
     e.preventDefault();
     setEndpointLoading(true);
+    setActionFeedback(null);
     try {
       await api.post(`/websites/${id}/endpoints`, {
         name: endpointName,
@@ -83,21 +96,35 @@ const WebsiteDetailsView = () => {
       setShowAddEndpoint(false);
       setEndpointPath('/api/health');
       setEndpointName('');
+      setActionFeedback({
+        type: 'success',
+        message: `Endpoint probe "${endpointName}" registered successfully.`
+      });
       fetchSiteDetails();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to add endpoint');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to add endpoint probe.'
+      });
     } finally {
       setEndpointLoading(false);
     }
   };
 
   const handleDeleteEndpoint = async (endpointId) => {
-    if (!window.confirm('Delete this monitored endpoint?')) return;
+    setActionFeedback(null);
     try {
       await api.delete(`/websites/${id}/endpoints/${endpointId}`);
+      setActionFeedback({
+        type: 'success',
+        message: 'Endpoint monitor removed successfully.'
+      });
       fetchSiteDetails();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to delete endpoint');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to delete endpoint.'
+      });
     }
   };
 
@@ -144,6 +171,30 @@ const WebsiteDetailsView = () => {
           </Button>
         </div>
       </div>
+
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)} 
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Target Title Card */}
       <div className="glass-panel p-6 rounded-2xl border border-[#1A2740] flex flex-col md:flex-row md:items-center justify-between gap-4">

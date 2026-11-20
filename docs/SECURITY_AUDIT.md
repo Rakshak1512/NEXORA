@@ -56,3 +56,4 @@ For zero-collector website monitoring, CYNERA implements strict IP range filteri
 - Outbound webhooks include an `X-Cynera-Signature` header computed as:
   $$\text{Signature} = \text{HMAC-SHA256}(\text{payload\_bytes}, \text{webhook\_secret})$$
 - Consumers can verify authenticity and integrity before accepting alerts or incident notifications.
+

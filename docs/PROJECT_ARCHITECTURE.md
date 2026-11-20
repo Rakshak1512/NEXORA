@@ -88,3 +88,4 @@ CYNERA is built as a hybrid observability platform serving two complementary ope
 ### Subsystem 6: Frontend Single-Page Application (`frontend/`)
 - Built with React 18, Vite, Lucide Icons, and Tailwind CSS.
 - Features 24 fully-audited views covering overview dashboards, website deep-dives, infrastructure, network fleet, security threats, AIOps correlation, approvals, reports, and developer API settings.
+

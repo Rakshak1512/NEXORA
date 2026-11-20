@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, Download, Plus, CheckCircle2, Shield, Activity, 
-  Clock, Calendar, Sparkles, X, Printer, BarChart3, AlertOctagon
+  Clock, Calendar, Sparkles, X, Printer, BarChart3, AlertOctagon,
+  AlertCircle
 } from 'lucide-react';
 import api from '../services/api';
 import Button from '../components/common/Button';
@@ -18,6 +19,7 @@ const ReportsView = () => {
   const [loading, setLoading] = useState(true);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [activeReport, setActiveReport] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
 
   // Form state
   const [reportTitle, setReportTitle] = useState('Monthly Infrastructure & SLA Compliance Audit');
@@ -44,6 +46,7 @@ const ReportsView = () => {
   const handleGenerate = async (e) => {
     e.preventDefault();
     setGenerating(true);
+    setActionFeedback(null);
     try {
       const res = await api.post('/reports/generate', {
         title: reportTitle,
@@ -52,9 +55,16 @@ const ReportsView = () => {
       });
       setShowGenerateModal(false);
       setActiveReport(res.data);
+      setActionFeedback({
+        type: 'success',
+        message: `Report "${res.data.title}" compiled and generated successfully.`
+      });
       fetchReports();
     } catch (err) {
-      alert('Failed to generate report.');
+      setActionFeedback({
+        type: 'error',
+        message: err.response?.data?.detail || 'Failed to generate compliance report.'
+      });
     } finally {
       setGenerating(false);
     }
@@ -62,6 +72,27 @@ const ReportsView = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPDF = async (rep) => {
+    try {
+      const response = await api.get(`/reports/${rep.id}/download`, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `CYNERA_Security_Report_${rep.id?.slice(0, 8)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF download error:', err);
+      setActionFeedback({
+        type: 'error',
+        message: 'Could not generate PDF. Please ensure the backend server is running.'
+      });
+    }
   };
 
   const handleDownloadJSON = (rep) => {
@@ -99,6 +130,30 @@ const ReportsView = () => {
           <span>Generate New Report</span>
         </Button>
       </div>
+
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+          actionFeedback.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button 
+            onClick={() => setActionFeedback(null)} 
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Reports Table */}
       <div className="glass-panel rounded-2xl border border-[#1A2740] overflow-hidden">
@@ -155,17 +210,25 @@ const ReportsView = () => {
 
                   <td className="px-5 py-3.5 text-right space-x-2">
                     <button
+                      onClick={() => handleDownloadPDF(rep)}
+                      className="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 text-cyan-300 transition text-[11px] font-semibold inline-flex items-center gap-1.5"
+                      title="Download Branded PDF Report"
+                    >
+                      <Download className="w-3 h-3" />
+                      PDF
+                    </button>
+                    <button
                       onClick={() => setActiveReport(rep)}
                       className="px-2.5 py-1 rounded-lg bg-[#070C14] border border-[#1A2740] hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 transition text-[11px] font-medium"
                     >
-                      View Report
+                      View
                     </button>
                     <button
                       onClick={() => handleDownloadJSON(rep)}
                       className="p-1 rounded-lg text-slate-400 hover:text-white transition"
                       title="Download JSON"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <FileText className="w-3.5 h-3.5" />
                     </button>
                   </td>
                 </tr>
@@ -260,6 +323,14 @@ const ReportsView = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadPDF(activeReport)}
+                  className="px-3 py-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/25 transition text-xs font-semibold flex items-center gap-1.5"
+                  title="Download Branded PDF Report"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download PDF
+                </button>
                 <button
                   onClick={handlePrint}
                   className="p-2 rounded-lg bg-[#070C14] border border-[#1A2740] text-slate-300 hover:text-white transition"
