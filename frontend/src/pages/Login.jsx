@@ -11,8 +11,22 @@ const Login = () => {
   const [require2fa, setRequire2fa] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, logout } = useAuth();
+  const { login, demoLogin, logout } = useAuth();
   const navigate = useNavigate();
+
+  const handleDemoLogin = async (demoEmail, type) => {
+    setError('');
+    setLoading(true);
+    setAccountType(type);
+    try {
+      await demoLogin(demoEmail);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.detail || (err.request ? 'Cannot reach the backend. Start FastAPI at http://127.0.0.1:8000 and restart the Vite frontend.' : err.message) || 'Unable to open demo account.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -143,12 +157,12 @@ const Login = () => {
               <span className="text-[10px] text-slate-500">Development only</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button type="button" onClick={() => { setAccountType('admin'); setEmail('admin@cynera.io'); setPassword('Cynera2026!Secure'); setError(''); }} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
+              <button type="button" disabled={loading} onClick={() => handleDemoLogin('admin@cynera.io', 'admin')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
                 <span className="block text-xs font-semibold text-slate-100">Platform Admin</span>
                 <span className="block text-[11px] text-slate-400 mt-1">admin@cynera.io</span>
                 <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
               </button>
-              <button type="button" onClick={() => { setAccountType('owner'); setEmail('operator@cynera.io'); setPassword('Cynera2026!Secure'); setError(''); }} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
+              <button type="button" disabled={loading} onClick={() => handleDemoLogin('operator@cynera.io', 'owner')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
                 <span className="block text-xs font-semibold text-slate-100">Workspace User</span>
                 <span className="block text-[11px] text-slate-400 mt-1">operator@cynera.io</span>
                 <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>

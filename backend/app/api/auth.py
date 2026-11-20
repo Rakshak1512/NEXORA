@@ -6,6 +6,7 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
+from ..config import settings
 from ..models.models import (
     Profile, Organization, Tenant, OrganizationMembership,
     Collector, Notification, MonitoredWebsite, utc_now
@@ -332,6 +333,44 @@ def resend_otp(data: OTPResendRequest, db: Session = Depends(get_db)):
         "status": "otp_resent",
         "message": "A refreshed 6-digit verification code has been dispatched to your email."
     }
+
+@router.post("/demo-login")
+def demo_login(data: dict, db: Session = Depends(get_db)):
+    """Password/OTP-free access to fixed demo accounts in local development only."""
+    runtime_env = (settings.APP_ENV or settings.ENVIRONMENT or "production").strip().lower()
+    if runtime_env not in {"development", "dev", "test", "testing"}:
+        raise HTTPException(status_code=404, detail="Not found.")
+
+    email = str(data.get("email", "")).lower().strip()
+    allowed_demo_accounts = {
+        "admin@cynera.io": "Super Administrator",
+        "operator@cynera.io": "Operator",
+    }
+    expected_role = allowed_demo_accounts.get(email)
+    if not expected_role:
+        raise HTTPException(status_code=403, detail="Only the predefined demo accounts are available.")
+
+    user = db.query(Profile).filter(Profile.email == email).first()
+    if not user or user.role != expected_role or not user.is_active or not user.is_verified:
+        raise HTTPException(status_code=404, detail="Demo account is not seeded. Start the backend with an empty development database.")
+
+    token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
+    org = db.query(Organization).filter(Organization.id == user.organization_id).first()
+    return {
+        "status": "authenticated",
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id, "email": user.email, "full_name": user.full_name,
+            "role": user.role, "job_title": user.job_title,
+            "organization_id": user.organization_id, "tenant_id": user.tenant_id
+        },
+        "organization": {
+            "id": org.id if org else None, "name": org.name if org else None,
+            "slug": org.slug if org else None, "plan": org.plan if org else "enterprise"
+        }
+    }
+
 
 @router.post("/login")
 def login_user(data: UserLogin, db: Session = Depends(get_db)):
