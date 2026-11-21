@@ -873,19 +873,37 @@ def seed_demo_workspace_data():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    seed_database_if_empty()
-    seed_demo_workspace_data()
+    # Vercel runs this FastAPI app as short-lived serverless functions.
+    # Do not launch process-lifetime schedulers or run schema/demo seeding in
+    # every serverless instance; both create unnecessary concurrent DB traffic.
+    is_vercel = os.getenv("VERCEL", "").lower() in {"1", "true"}
+
+    if is_vercel:
+        print(
+            "[Lifespan] Vercel serverless runtime detected: automatic database/demo "
+            "seeding and the continuous website scheduler are disabled. "
+            "Use Supabase migrations for schema setup and request-triggered checks "
+            "for website monitoring."
+        )
+    else:
+        seed_database_if_empty()
+        seed_demo_workspace_data()
+        if settings.DEMO_MODE:
+            try:
+                from .services.demo_seeder import seed_demo_accounts_and_data
+                active_session = getattr(db_module, 'SessionLocal', SessionLocal)
+                if active_session:
+                    with active_session() as s:
+                        seed_demo_accounts_and_data(s)
+            except Exception as e:
+                print(f"[Lifespan] Demo seeder warning: {e}")
+        website_scheduler.start()
+
     try:
-        from .services.demo_seeder import seed_demo_accounts_and_data
-        active_session = getattr(db_module, 'SessionLocal', SessionLocal)
-        if active_session:
-            with active_session() as s:
-                seed_demo_accounts_and_data(s)
-    except Exception as e:
-        print(f"[Lifespan] Demo seeder warning: {e}")
-    website_scheduler.start()
-    yield
-    website_scheduler.stop()
+        yield
+    finally:
+        if not is_vercel:
+            website_scheduler.stop()
 
 app = FastAPI(
     title="CYNERA — Cyber Network Evaluation and Risk Analytics",
