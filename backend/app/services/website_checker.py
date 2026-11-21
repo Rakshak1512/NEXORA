@@ -1,3 +1,4 @@
+import asyncio
 import re
 import time
 import ssl
@@ -11,15 +12,16 @@ from .ssrf_guard import validate_public_url
 def parse_ssl_certificate(hostname: str, port: int = 443, timeout: float = 5.0) -> Dict[str, Any]:
     """Inspects the live SSL/TLS certificate of a hostname."""
     context = ssl.create_default_context()
-    conn = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname=hostname)
-    conn.settimeout(timeout)
+    conn = None
 
     try:
         t0 = time.perf_counter()
-        conn.connect((hostname, port))
+        # create_connection selects IPv4 or IPv6 based on DNS/address family.
+        raw_socket = socket.create_connection((hostname, port), timeout=timeout)
+        conn = context.wrap_socket(raw_socket, server_hostname=hostname)
+        conn.settimeout(timeout)
         handshake_ms = round((time.perf_counter() - t0) * 1000, 2)
         cert = conn.getpeercert()
-        conn.close()
 
         if not cert:
             return {
@@ -92,6 +94,55 @@ def parse_ssl_certificate(hostname: str, port: int = 443, timeout: float = 5.0) 
             "handshake_ms": 0.0,
             "error": str(e)
         }
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+async def _get_with_public_redirects(
+    client: httpx.AsyncClient,
+    start_url: str,
+    headers: Dict[str, str],
+    max_redirects: int = 5,
+) -> Tuple[Optional[httpx.Response], Optional[str], List[str]]:
+    """
+    Follow redirects manually and re-run SSRF validation before every hop.
+    This prevents a public URL from redirecting the monitor to localhost,
+    private networks, link-local addresses or cloud metadata endpoints.
+    """
+    current_url = start_url
+    visited = set()
+    resolved_ips: List[str] = []
+    redirect_codes = {301, 302, 303, 307, 308}
+
+    for hop in range(max_redirects + 1):
+        safe, reason, normalized_url, hop_ips = await asyncio.to_thread(
+            validate_public_url,
+            current_url,
+        )
+        if not safe:
+            return None, f"Redirect blocked by SSRF protection: {reason}", resolved_ips
+
+        if normalized_url in visited:
+            return None, "Redirect loop detected; the target was not followed.", resolved_ips
+        visited.add(normalized_url)
+
+        for ip in hop_ips:
+            if ip not in resolved_ips:
+                resolved_ips.append(ip)
+
+        response = await client.get(normalized_url, headers=headers)
+        location = response.headers.get("location")
+        if response.status_code not in redirect_codes or not location:
+            return response, None, resolved_ips
+
+        if hop >= max_redirects:
+            return None, f"Redirect limit exceeded ({max_redirects}).", resolved_ips
+
+        current_url = urllib.parse.urljoin(normalized_url, location)
+
+    return None, f"Redirect limit exceeded ({max_redirects}).", resolved_ips
+
 
 async def execute_website_check(
     url: str,
@@ -108,7 +159,10 @@ async def execute_website_check(
 
     # 1. SSRF and Domain Validation
     t_dns_start = time.perf_counter()
-    is_safe, ssrf_msg, norm_url, resolved_ips = validate_public_url(url)
+    is_safe, ssrf_msg, norm_url, resolved_ips = await asyncio.to_thread(
+        validate_public_url,
+        url,
+    )
     dns_time_ms = round((time.perf_counter() - t_dns_start) * 1000, 2)
 
     if not is_safe:
@@ -159,25 +213,44 @@ async def execute_website_check(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=timeout_sec, follow_redirects=True, verify=False) as client:
-            resp = await client.get(norm_url, headers=headers)
-            resp_time_ms = round((time.perf_counter() - t_req_start) * 1000, 2)
-            status_code = resp.status_code
+        async with httpx.AsyncClient(
+            timeout=timeout_sec,
+            follow_redirects=False,
+            verify=False,
+            trust_env=False,
+        ) as client:
+            resp, redirect_error, redirect_ips = await _get_with_public_redirects(
+                client,
+                norm_url,
+                headers,
+            )
+            for ip in redirect_ips:
+                if ip not in resolved_ips:
+                    resolved_ips.append(ip)
 
-            if status_code in expected_status_codes:
-                if resp_time_ms > 2500:
-                    check_status = "DEGRADED"
+            resp_time_ms = round((time.perf_counter() - t_req_start) * 1000, 2)
+            if redirect_error:
+                check_status = "HTTP_ERROR"
+                error_msg = redirect_error
+            elif resp is not None:
+                status_code = resp.status_code
+                if status_code in expected_status_codes:
+                    if resp_time_ms > 2500:
+                        check_status = "DEGRADED"
+                    else:
+                        check_status = "ONLINE"
                 else:
-                    check_status = "ONLINE"
+                    if status_code >= 500:
+                        check_status = "DOWN"
+                        error_msg = f"HTTP {status_code} Internal Server Error"
+                    elif status_code >= 400:
+                        check_status = "HTTP_ERROR"
+                        error_msg = f"HTTP {status_code} Client Error (Expected: {expected_status_codes})"
+                    else:
+                        check_status = "DEGRADED"
             else:
-                if status_code >= 500:
-                    check_status = "DOWN"
-                    error_msg = f"HTTP {status_code} Internal Server Error"
-                elif status_code >= 400:
-                    check_status = "HTTP_ERROR"
-                    error_msg = f"HTTP {status_code} Client Error (Expected: {expected_status_codes})"
-                else:
-                    check_status = "DEGRADED"
+                check_status = "DOWN"
+                error_msg = "Monitoring request did not return an HTTP response."
 
     except httpx.ConnectTimeout:
         resp_time_ms = round(timeout_sec * 1000, 2)
