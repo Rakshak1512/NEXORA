@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = ConfigDict(env_file=(_backend_env, ".env"), extra="ignore")
 
     APP_NAME: str = "CYNERA"
-    APP_ENV: str = "production"
+    APP_ENV: str = ""
     ENVIRONMENT: str = "production"
     DEBUG: bool = False
 
