@@ -9,7 +9,9 @@ from . import database as db_module
 from .database import engine, Base, SessionLocal
 from .models.models import (
     Organization, Tenant, Profile, Collector, Incident,
-    IncidentAlert, AIRecommendation, RemediationApproval, PerformanceBenchmark,
+    IncidentAlert, AIRecommendation, RemediationApproval, PerformanceBenchmark, EgressMetadata,
+    Webhook, WebhookDelivery, CollectorHeartbeat, ReportRecord, WebsiteCheckResult,
+    DatabaseMetric, ApplicationEvent,
     InfrastructureMetric, NetworkMetric, SecuritySummary,
     NetworkDevice, NetworkCheckResult, OrganizationMembership,
     APIKey, EmbedWidgetToken, Notification
@@ -50,7 +52,7 @@ from .models.models import (
 def seed_database_if_empty():
     """Seeds demo fixtures only in explicit development/test environments."""
     runtime_env = (settings.APP_ENV or settings.ENVIRONMENT or "production").strip().lower()
-    if runtime_env not in {"development", "dev", "test", "testing"}:
+    if not settings.DEMO_MODE and runtime_env not in {"development", "dev", "test", "testing"}:
         print("[Database] Demo seeding disabled outside development/test environments.")
         return
     active_engine = getattr(db_module, 'engine', engine)
@@ -524,9 +526,170 @@ def seed_database_if_empty():
     finally:
         db.close()
 
+def seed_demo_workspace_data():
+    """Create repeatable, clearly synthetic records for every major demo workflow."""
+    if not settings.DEMO_MODE:
+        return
+    db = SessionLocal()
+    try:
+        org = db.query(Organization).filter(Organization.slug == "acroglobal").first()
+        tenant = db.query(Tenant).filter(Tenant.slug == "na-prod-useast").first()
+        if not org or not tenant:
+            return
+
+        personas = [
+            ("owner@cynera.io", "Morgan Lee", "Organization Owner"),
+            ("workspace-admin@cynera.io", "Jordan Patel", "Admin"),
+            ("security@cynera.io", "Taylor Brooks", "Security Analyst"),
+            ("infra@cynera.io", "Casey Morgan", "Infrastructure Engineer"),
+            ("viewer@cynera.io", "Riley Kim", "Viewer"),
+        ]
+        for email, full_name, role in personas:
+            user = db.query(Profile).filter(Profile.email == email).first()
+            if not user:
+                user = Profile(
+                    email=email,
+                    password_hash=get_password_hash("Cynera2026!Secure"),
+                    full_name=full_name,
+                    role=role,
+                    organization_id=org.id,
+                    tenant_id=tenant.id,
+                    is_verified=True,
+                    is_active=True
+                )
+                db.add(user)
+                db.flush()
+            membership = db.query(OrganizationMembership).filter(
+                OrganizationMembership.organization_id == org.id,
+                OrganizationMembership.user_id == user.id
+            ).first()
+            if not membership:
+                db.add(OrganizationMembership(
+                    organization_id=org.id,
+                    user_id=user.id,
+                    role=role if role != "Super Administrator" else "Organization Owner",
+                    is_active=True
+                ))
+
+        db.flush()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        c1 = db.query(Collector).filter(Collector.tenant_id == tenant.id).first()
+        if not c1:
+            return
+
+        # Alert Center: deliberately include active, acknowledged and resolved cases.
+        if db.query(Alert).filter(Alert.organization_id == org.id).count() < 3:
+            for suffix, title, severity, category, status_value, evidence in [
+                ("demo-warn", "DEMO: API latency above warning threshold", "MEDIUM", "application", "ACTIVE", "Synthetic latency is 135ms; demo warning case."),
+                ("demo-crit", "DEMO: Database connection pool near exhaustion", "CRITICAL", "database", "ACTIVE", "Synthetic pool saturation is 97%; demo critical case."),
+                ("demo-res", "DEMO: Network packet loss recovered", "LOW", "network", "RESOLVED", "Synthetic packet loss returned to baseline; demo resolved case.")
+            ]:
+                if not db.query(Alert).filter(Alert.id == suffix).first():
+                    db.add(Alert(
+                        id=suffix, organization_id=org.id, title=title,
+                        severity=severity, category=category,
+                        resource_name="demo-service", resource_id="demo-service",
+                        evidence=evidence, status=status_value,
+                        resolved_at=now if status_value == "RESOLVED" else None
+                    ))
+
+        # AIOps and incident workflows: add synthetic records only when absent.
+        demo_incident_id = "demo-incident-warning-001"
+        incident = db.query(Incident).filter(Incident.id == demo_incident_id).first()
+        if not incident:
+            incident = Incident(
+                id=demo_incident_id,
+                incident_number="DEMO-INC-2026-001",
+                tenant_id=tenant.id,
+                collector_id=c1.id,
+                title="DEMO: Elevated API latency and memory pressure",
+                description="Synthetic demonstration incident; no production system was affected.",
+                severity="HIGH",
+                status="INVESTIGATING",
+                affected_components=json.dumps(["demo-api", "demo-worker"]),
+                contributing_signals=json.dumps(["CPU 91%", "Memory 88%", "Latency 135ms"]),
+                correlation_reason="Demo signals grouped in the same correlation window.",
+                created_at=now - datetime.timedelta(minutes=8)
+            )
+            db.add(incident)
+            db.flush()
+            db.add(AIRecommendation(
+                incident_id=incident.id,
+                tenant_id=tenant.id,
+                detected_anomaly="DEMO: Compound resource pressure",
+                contributing_signals=json.dumps(["CPU 91%", "Memory 88%", "Latency 135ms"]),
+                baseline_comparison="Synthetic demo baseline: CPU 42%, memory 55%, latency 25ms.",
+                confidence_score=91.0,
+                possible_root_cause="Synthetic worker saturation used for demonstration.",
+                recommended_investigation="Inspect demo worker utilization and recent deployment changes.",
+                suggested_action="Simulate a staged worker recycle after operator approval.",
+                suggested_action_type="SIMULATED_WORKER_RECYCLE",
+                rollback_plan="Restore the demo worker state if the simulated health check fails.",
+                is_deterministic_fallback=True
+            ))
+        if db.query(IncidentAlert).filter(IncidentAlert.tenant_id == tenant.id, IncidentAlert.message.like("DEMO:%")).count() == 0:
+            db.add_all([
+                IncidentAlert(tenant_id=tenant.id, collector_id=c1.id, alert_type="CPU_THRESHOLD", severity="HIGH", metric_name="cpu_utilization_pct", metric_value=91.0, threshold_value=85.0, message="DEMO: CPU usage reached 91% on the sample worker.", incident_id=demo_incident_id),
+                IncidentAlert(tenant_id=tenant.id, collector_id=c1.id, alert_type="MEMORY_THRESHOLD", severity="MEDIUM", metric_name="memory_utilization_pct", metric_value=88.0, threshold_value=80.0, message="DEMO: Memory usage reached 88% on the sample worker.", incident_id=demo_incident_id)
+            ])
+
+        # Security Center and egress proof examples.
+        if db.query(SecuritySummary).filter(SecuritySummary.payload_id == "demo-security-payload-001").first() is None:
+            db.add(SecuritySummary(
+                payload_id="demo-security-payload-001", collector_id=c1.id, tenant_id=tenant.id,
+                failed_login_count=18, suspicious_activity_score=82.0,
+                security_event_severity="HIGH", authentication_failure_rate_per_min=18.0,
+                pseudonymous_source_cluster="demo-cluster-a", redacted_tokens_detected=3,
+                summary_description="DEMO: Synthetic repeated authentication failures; no real user IPs or credentials."
+            ))
+        if db.query(EgressMetadata).filter(EgressMetadata.payload_id == "demo-egress-payload-001").first() is None:
+            db.add(EgressMetadata(
+                payload_id="demo-egress-payload-001", collector_id=c1.id, tenant_id=tenant.id,
+                payload_hash_sha256="a" * 64, bytes_transmitted=1240,
+                redacted_fields_count=3, redacted_field_types=json.dumps(["email", "token", "password"]),
+                rejected_keys=json.dumps(["raw_log", "authorization_header"]),
+                allowlist_validated=True, raw_payload_preview_hash="b" * 64,
+                local_raw_preview=json.dumps({"note": "DEMO synthetic masked preview"}),
+                outgoing_payload_json=json.dumps({"cpu": 91.0, "memory": 88.0, "demo": True}),
+                destination_endpoint="/api/telemetry/ingest", transmission_status="DELIVERED",
+                latency_transit_ms=24.0, sent_at=now, delivered_at=now
+            ))
+
+        # Seed a demonstration report and notifications so their list/detail buttons have content.
+        if db.query(ReportRecord).filter(ReportRecord.organization_id == org.id, ReportRecord.title == "DEMO - Weekly Observability Report").first() is None:
+            db.add(ReportRecord(
+                organization_id=org.id,
+                title="DEMO - Weekly Observability Report",
+                report_type="executive_summary",
+                time_range="last_7_days",
+                summary_json=json.dumps({
+                    "demo_data": True,
+                    "executive_summary": "Synthetic sample report for demonstrating report generation and PDF download.",
+                    "telemetry_stats": {"average_cpu_pct": 52.4, "average_memory_pct": 61.2, "sla_availability_pct": 99.2},
+                    "incident_stats": {"total_detected": 3, "total_resolved": 2, "mttr_minutes": 12.0},
+                    "privacy_and_security": {"zero_trust_compliance": "DEMO", "raw_log_egress_prevention": "DEMO ONLY"}
+                })
+            ))
+        for title, message, kind in [
+            ("DEMO: Warning notification", "Sample warning: API latency is above its configured threshold.", "warning"),
+            ("DEMO: Critical notification", "Sample critical event: database pool saturation reached 97%.", "critical"),
+            ("DEMO: Recovery notification", "Sample recovery: network packet loss returned to normal.", "success")
+        ]:
+            if db.query(Notification).filter(Notification.organization_id == org.id, Notification.title == title).first() is None:
+                db.add(Notification(organization_id=org.id, title=title, message=message, type=kind))
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed_database_if_empty()
+    seed_demo_workspace_data()
     website_scheduler.start()
     yield
     website_scheduler.stop()
