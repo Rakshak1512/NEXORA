@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import database as db_module
 from ..models.models import (
     MonitoredWebsite, WebsiteCheckResult, Incident, Alert,
-    Notification, utc_now
+    Notification, Tenant, utc_now
 )
 from .website_checker import execute_website_check
 from .webhook_service import dispatch_webhook_event
@@ -150,17 +150,23 @@ class WebsiteMonitoringScheduler:
             if is_now_down and (not was_down or site.consecutive_failures >= 2):
                 inc_num = f"INC-WEB-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
                 
+                # Resolve active tenant for the website's organization
+                tenant = db.query(Tenant).filter(Tenant.organization_id == site.organization_id).first()
+                if not tenant:
+                    tenant = db.query(Tenant).first()
+                tenant_id = tenant.id if tenant else None
+
                 # Check for existing open incident for this website
                 open_inc = db.query(Incident).filter(
-                    Incident.tenant_id == site.organization_id,
+                    Incident.tenant_id == tenant_id,
                     Incident.title.like(f"%{site.name}%"),
                     Incident.status.in_(["OPEN", "INVESTIGATING", "ACKNOWLEDGED"])
-                ).first()
+                ).first() if tenant_id else None
 
-                if not open_inc:
+                if not open_inc and tenant_id:
                     new_incident = Incident(
                         incident_number=inc_num,
-                        tenant_id=site.organization_id,
+                        tenant_id=tenant_id,
                         collector_id="saas-synthetic-probe",
                         title=f"Website Outage: {site.name} is {new_status}",
                         description=f"Automated probe confirmed failure for {site.url}. Reason: {result.get('error_message') or 'Probe unreachable'}.",
@@ -256,16 +262,20 @@ class WebsiteMonitoringScheduler:
                     ).order_by(WebsiteCheckResult.recorded_at.desc()).limit(20).all()
                     recent_latencies = [c[0] for c in recent_checks if c[0] is not None]
 
-                    ai_eval = hybrid_ai_engine.evaluate_website_telemetry(
-                        url=site.url,
-                        status_code=result["status_code"] or 200,
-                        response_time_ms=result["response_time_ms"],
-                        ssl_days_remaining=result.get("ssl_days_remaining", 90),
-                        is_online=result["is_online"],
-                        recent_latencies=recent_latencies
+                    ai_eval_list = hybrid_ai_engine.evaluate_website_telemetry(
+                        website_url=site.url,
+                        metrics={
+                            "status_code": result["status_code"] or 200,
+                            "response_time_ms": result["response_time_ms"],
+                            "ssl_days_remaining": result.get("ssl_days_remaining", 90),
+                            "is_online": result["is_online"],
+                            "recent_latencies": recent_latencies
+                        }
                     )
 
-                    if ai_eval.get("is_anomaly"):
+                    if ai_eval_list and len(ai_eval_list) > 0:
+                        ai_eval = ai_eval_list[0]
+                        if ai_eval.get("is_anomaly"):
                         existing_alert = db.query(Alert).filter(
                             Alert.organization_id == site.organization_id,
                             Alert.resource_id == site.id,
