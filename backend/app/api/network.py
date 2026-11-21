@@ -317,7 +317,7 @@ def create_network_device(
                 "status": device.status,
                 "ip_address": device.ip_address
             }
-        }))
+        }, tenant_id=current_user.tenant_id))
     except Exception:
         pass
 
