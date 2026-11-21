@@ -581,7 +581,7 @@ async def cynera_security_rate_limit_middleware(request: Request, call_next):
     path = request.url.path
 
     if any(auth_path in path for auth_path in ("/api/auth/login", "/api/auth/register", "/api/auth/verify-otp", "/api/auth/demo-login", "/api/auth/resend-otp", "/api/auth/forgot-password")):
-        allowed, remaining, retry_after = rate_limiter.check_rate_limit(f"auth:{client_ip}", max_requests=30, window_seconds=60)
+        allowed, remaining, retry_after = rate_limiter.check_rate_limit(f"auth:{client_ip}:{path}", max_requests=30, window_seconds=60)
     else:
         allowed, remaining, retry_after = rate_limiter.check_rate_limit(f"ip:{client_ip}", max_requests=240, window_seconds=60)
 
