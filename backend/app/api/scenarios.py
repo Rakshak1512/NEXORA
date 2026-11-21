@@ -4,6 +4,7 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
+from ..config import settings
 from ..models.models import SystemAuditLog, PerformanceBenchmark, IncidentAlert, AIRecommendation, Collector, Profile
 from ..auth.deps import get_current_user, RoleChecker
 from ..schemas.schemas import ScenarioTriggerRequest
@@ -136,7 +137,7 @@ def scenario_catalog(current_user: Profile = Depends(get_current_user)):
 
 
 @router.post("/scenarios/trigger")
-async def trigger_scenario(data: ScenarioTriggerRequest, current_user: Profile = Depends(RoleChecker(["Super Administrator", "Organization Owner", "Admin", "Organization Administrator", "Infrastructure Engineer", "Security Analyst", "Operator"])), db: Session = Depends(get_db)):
+async def trigger_scenario(data: ScenarioTriggerRequest, current_user: Profile = Depends(RoleChecker(["Super Administrator", "Organization Owner", "Admin", "Organization Administrator", "Infrastructure Engineer", "Security Analyst", "Operator", "Viewer"])), db: Session = Depends(get_db)):
     """Inject a labelled synthetic sample into the same telemetry pipeline used by collectors.
     Viewer remains read-only. No real host, network, application or database is modified.
     """
