@@ -418,27 +418,33 @@ npm run build
 
 ---
 
-### 14. Future Deployment Architecture (Exactly TWO Hosted Services)
+### 14. Deployment Architecture (Exactly TWO Vercel Services)
 
-When ready to deploy, the architecture consists of **exactly TWO hosted services**:
+CYNERA is deployed as **one Vercel project containing exactly TWO services** from this monorepo.
 
-#### Service 1: Frontend (Vercel)
-- **Host**: Vercel
-- **Build Command**: `npm run build`
-- **Output Directory**: `dist`
-- **Routing**: `vercel.json` provides client-side rewrites to `index.html`.
-- **Environment**: Only `VITE_API_URL=https://YOUR-BACKEND-DOMAIN`.
+#### Service 1: Frontend (Vite)
+- **Root**: `frontend/`
+- **Framework**: Vite
+- **Build**: `npm run build`
+- **Output**: `dist`
+- **API base URL**: set `VITE_API_URL` to the shared Vercel deployment origin.
 
-#### Service 2: Backend (Render / Railway / Cloud Host)
-- **Host**: Cloud ASGI container
-- **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
-- **Environment**: `FRONTEND_URL`, `DATABASE_URL`, `JWT_SECRET_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`, etc.
-- **CORS**: Dynamically allows `FRONTEND_URL`.
+#### Service 2: Backend (FastAPI)
+- **Root**: `backend/`
+- **Framework**: FastAPI
+- **Entrypoint**: `app.main:app`
+- **Dependencies**: `backend/requirements.txt`
+- **Routing**: `/api/*`, `/ws`, and API documentation paths are routed to FastAPI.
 
-#### Local Collector is NOT a Third Hosted Service
-- The collector is an independent daemon installed on customer machines or Kubernetes clusters.
-- It is never hosted as a central cloud service.
+#### Shared Vercel Deployment
+- Both services are exposed through the same Vercel project and deployment URL.
+- The root `vercel.json` defines the two services and routes API traffic to the backend; all other paths are routed to the frontend.
+- In Vercel Project Settings, set the Framework Preset to **Services**.
+- Configure backend environment variables in Vercel, including `DATABASE_URL`, `JWT_SECRET_KEY`, `APP_ENV`, `DEMO_MODE`, `FRONTEND_URL`, `CORS_ORIGINS`, and SMTP settings when email features are used.
+- Use managed PostgreSQL (for example Supabase) for persistent production data. Do not rely on local SQLite files for persistent serverless storage.
+- The local collector remains a separately installed customer-side component and is not deployed as a third Vercel service.
 
+**Serverless operations note:** website polling is started by the FastAPI lifespan. A continuously running polling loop is not guaranteed to persist between Vercel Function invocations; use a durable scheduled/worker service for dependable continuous website checks.
 ---
 
 ### 15. Egress Proof Center & Security Instructions
