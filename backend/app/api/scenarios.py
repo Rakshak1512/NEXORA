@@ -104,104 +104,129 @@ def get_benchmarks(db: Session = Depends(get_db)):
         }
     }
 
+@router.get("/scenarios/catalog")
+def scenario_catalog(current_user: Profile = Depends(get_current_user)):
+    """Catalog of synthetic demo cases available to every authenticated demo persona."""
+    cases = [
+        ("normal", "Normal baseline", "positive", "No alert expected", "CPU 45%, memory 55%, disk 60%, latency 18ms, packet loss 0.01%"),
+        ("cpu_spike", "Critical CPU spike", "warning", "CPU threshold/anomaly", "CPU 97.4%"),
+        ("cpu_warning", "Elevated CPU warning", "warning", "CPU warning threshold", "CPU 86%"),
+        ("memory_spike", "Memory saturation", "failure", "Memory threshold/anomaly", "Memory 94.2%"),
+        ("memory_leak", "Gradual memory growth", "warning", "Sustained memory trend", "Memory 88%"),
+        ("disk_spike", "Disk nearly full", "failure", "Disk threshold/anomaly", "Disk 96.8%"),
+        ("disk_warning", "Disk capacity warning", "warning", "Disk warning threshold", "Disk 86%"),
+        ("latency_increase", "Network latency surge", "warning", "Latency anomaly", "Latency 312ms"),
+        ("packet_loss_increase", "Packet loss surge", "failure", "Packet-loss threshold", "Packet loss 7.8%"),
+        ("network_unreachable", "Network path unavailable", "failure", "Connectivity failure", "Connectivity DISCONNECTED"),
+        ("failed_logins", "Repeated authentication failures", "failure", "Security anomaly", "65 failed logins/min"),
+        ("suspicious_activity", "Suspicious activity burst", "failure", "Security risk score", "Risk score 96/100"),
+        ("collector_offline", "Collector offline", "failure", "Collector heartbeat stale", "Collector status OFFLINE"),
+        ("collector_delayed", "Delayed collector heartbeat", "warning", "Heartbeat age warning", "Heartbeat delayed 75 seconds"),
+        ("application_slow", "Application response degradation", "warning", "Application latency/error-rate anomaly", "Latency 420ms"),
+        ("application_outage", "Application unavailable", "failure", "Application availability failure", "Connectivity DISCONNECTED"),
+        ("database_saturation", "Database connection saturation", "failure", "Database pool threshold", "Pool saturation 97%"),
+        ("database_slow_queries", "Slow database queries", "warning", "Query latency anomaly", "Query latency 850ms"),
+        ("duplicate_payload", "Duplicate telemetry delivery", "edge_case", "Duplicate payload rejected", "Same payload sent twice"),
+        ("out_of_order_payload", "Out-of-order telemetry", "edge_case", "Late event handling", "Timestamp older than latest sample"),
+        ("multi_alert_single_incident", "Correlated multi-signal incident", "failure", "Correlated incident", "CPU 95%, memory 92%, latency 260ms, packet loss 4.5%"),
+        ("recovery_after_outage", "Recovery after outage", "recovery", "Return to healthy baseline", "Normal telemetry after simulated failure"),
+    ]
+    return {"demo_mode": settings.DEMO_MODE, "synthetic_only": True,
+            "cases": [{"id": x[0], "name": x[1], "group": x[2], "expected_detection": x[3], "input": x[4]} for x in cases]}
+
+
 @router.post("/scenarios/trigger")
-async def trigger_scenario(data: ScenarioTriggerRequest, current_user: Profile = Depends(RoleChecker(["Super Administrator", "Organization Owner", "Admin", "Organization Administrator", "Infrastructure Engineer"])), db: Session = Depends(get_db)):
+async def trigger_scenario(data: ScenarioTriggerRequest, current_user: Profile = Depends(RoleChecker(["Super Administrator", "Organization Owner", "Admin", "Organization Administrator", "Infrastructure Engineer", "Security Analyst", "Operator"])), db: Session = Depends(get_db)):
+    """Inject a labelled synthetic sample into the same telemetry pipeline used by collectors.
+    Viewer remains read-only. No real host, network, application or database is modified.
     """
-    SCENARIO CONTROL CENTER
-    Simulates any of the 13 hackathon scenarios:
-    1. normal, 2. cpu_spike, 3. memory_spike, 4. disk_spike, 5. latency_increase,
-    6. packet_loss_increase, 7. failed_logins, 8. collector_offline, 9. saas_outage,
-    10. recovery_after_outage, 11. duplicate_payload, 12. out_of_order_payload,
-    13. multi_alert_single_incident
-    """
-    scenario = data.scenario.lower()
-    payload_id = f"sim-{uuid.uuid4().hex[:10]}"
-    now_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-    cpu = 45.0
-    mem = 55.0
-    disk = 60.0
-    lat = 18.0
-    loss = 0.01
-    auth_fail = 1
-    health = "EXCELLENT"
-    reason = "Nominal test simulation baseline."
-
-    if scenario == "cpu_spike":
-        cpu = 97.4
-        health = "POOR"
-        reason = "Severe CPU thread pool saturation spike (97.4%)"
-    elif scenario == "memory_spike":
-        mem = 94.2
-        health = "POOR"
-        reason = "Critical JVM memory heap saturation (94.2%)"
-    elif scenario == "disk_spike":
-        disk = 96.8
-        health = "POOR"
-        reason = "Database persistent volume storage nearing exhaustion (96.8%)"
-    elif scenario in ["latency_increase", "network_latency_increase"]:
-        lat = 312.0
-        health = "FAIR"
-        reason = "Cross-datacenter WAN latency surge (312ms)"
-    elif scenario in ["packet_loss_increase", "packet_loss_surge"]:
-        loss = 7.8
-        health = "POOR"
-        reason = "High transmission packet drop rate (7.8%)"
-    elif scenario in ["failed_logins", "repeated_failed_logins"]:
-        auth_fail = 65
-        health = "FAIR"
-        reason = "Distributed credential stuffing pattern (65 failures/min)"
-    elif scenario == "duplicate_payload":
-        # First send regular
-        pass
-    elif scenario == "multi_alert_single_incident":
-        cpu = 95.0
-        mem = 92.0
-        lat = 260.0
-        loss = 4.5
-        health = "POOR"
-        reason = "Cascading resource failure across compute, memory and networking."
-
+    if not settings.DEMO_MODE:
+        raise HTTPException(status_code=403, detail="Scenario simulation is available only when DEMO_MODE=true.")
+    scenario = data.scenario.lower().strip()
+    supported = {
+        "normal", "cpu_spike", "cpu_warning", "memory_spike", "memory_leak",
+        "disk_spike", "disk_warning", "latency_increase", "network_latency_increase",
+        "packet_loss_increase", "packet_loss_surge", "network_unreachable",
+        "failed_logins", "repeated_failed_logins", "suspicious_activity",
+        "collector_offline", "collector_delayed", "application_slow",
+        "application_outage", "database_saturation", "database_slow_queries",
+        "duplicate_payload", "out_of_order_payload", "multi_alert_single_incident",
+        "recovery_after_outage"
+    }
+    if scenario not in supported:
+        raise HTTPException(status_code=400, detail=f"Unsupported scenario. Use GET /api/scenarios/catalog.")
     if not current_user.tenant_id:
         raise HTTPException(status_code=400, detail="User is not associated with a tenant.")
-    simulation_collector = db.query(Collector).filter(Collector.tenant_id == current_user.tenant_id).first()
-    if not simulation_collector:
-        raise HTTPException(status_code=400, detail="Register a collector for this tenant before running a scenario.")
+    collector = db.query(Collector).filter(Collector.tenant_id == current_user.tenant_id).first()
+    if not collector:
+        raise HTTPException(status_code=400, detail="No demo collector is seeded for this tenant.")
 
+    cpu, mem, disk, lat, loss = 45.0, 55.0, 60.0, 18.0, 0.01
+    auth_fail, suspicious, auth_rate = 0, 0.0, 0.0
+    connectivity, health = "CONNECTED", "EXCELLENT"
+    reason = "Synthetic healthy baseline. A false-positive check: no abnormal condition is present."
+    expected = "No anomaly alert expected; detector should remain healthy."
+    if scenario == "cpu_spike": cpu, health, reason, expected = 97.4, "POOR", "Synthetic CPU saturation at 97.4%.", "CPU critical threshold/anomaly"
+    elif scenario == "cpu_warning": cpu, health, reason, expected = 86.0, "FAIR", "Synthetic elevated CPU at 86%.", "CPU warning threshold"
+    elif scenario == "memory_spike": mem, health, reason, expected = 94.2, "POOR", "Synthetic memory saturation at 94.2%.", "Memory critical threshold/anomaly"
+    elif scenario == "memory_leak": mem, health, reason, expected = 88.0, "FAIR", "Synthetic sustained memory growth at 88%.", "Memory trend/threshold warning"
+    elif scenario == "disk_spike": disk, health, reason, expected = 96.8, "POOR", "Synthetic disk capacity at 96.8%.", "Disk critical threshold"
+    elif scenario == "disk_warning": disk, health, reason, expected = 86.0, "FAIR", "Synthetic disk capacity at 86%.", "Disk capacity warning"
+    elif scenario in ("latency_increase", "network_latency_increase", "application_slow"):
+        lat, health, reason, expected = (420.0 if scenario == "application_slow" else 312.0), "FAIR", "Synthetic elevated response latency.", "Latency anomaly"
+    elif scenario in ("packet_loss_increase", "packet_loss_surge"):
+        loss, health, reason, expected = 7.8, "POOR", "Synthetic packet loss at 7.8%.", "Packet-loss threshold"
+    elif scenario in ("network_unreachable", "application_outage"):
+        connectivity, health, lat, reason, expected = "DISCONNECTED", "POOR", 5000.0, "Synthetic connectivity failure; no real endpoint was contacted.", "Connectivity/application availability failure"
+    elif scenario in ("failed_logins", "repeated_failed_logins"):
+        auth_fail, auth_rate, health, reason, expected = 65, 65.0, "FAIR", "Synthetic repeated authentication failures.", "Authentication anomaly"
+    elif scenario == "suspicious_activity":
+        auth_fail, auth_rate, suspicious, health, reason, expected = 42, 42.0, 96.0, "POOR", "Synthetic suspicious activity risk score 96/100.", "High security risk score"
+    elif scenario == "collector_offline":
+        collector.status = "offline"
+        collector.last_seen_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5)
+        db.commit()
+        return {"scenario": scenario, "synthetic": True, "expected_detection": "Collector offline/stale heartbeat", "actual_status": "Collector marked offline in demo database", "note": "No physical collector was stopped."}
+    elif scenario == "collector_delayed":
+        collector.last_seen_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=75)
+        collector.status = "online"
+        db.commit()
+        return {"scenario": scenario, "synthetic": True, "expected_detection": "Stale heartbeat warning", "actual_status": "Heartbeat timestamp aged by 75 seconds"}
+    elif scenario == "database_saturation":
+        mem, lat, health, reason, expected = 97.0, 850.0, "POOR", "Synthetic database pool saturation proxy; telemetry schema has no dedicated DB-pool field.", "Database pool saturation (requires DB integration metrics to confirm)"
+    elif scenario == "database_slow_queries":
+        lat, health, reason, expected = 850.0, "FAIR", "Synthetic slow-query latency proxy; no real query is executed.", "Slow database query (requires DB integration metrics to confirm)"
+    elif scenario == "recovery_after_outage":
+        collector.status = "online"
+        collector.last_seen_at = datetime.datetime.now(datetime.timezone.utc)
+        db.commit()
+        reason, expected = "Synthetic recovery sample after outage; baseline restored.", "Recovery/clear condition; previous alert should resolve only if recovery rules are configured."
+    elif scenario == "multi_alert_single_incident":
+        cpu, mem, lat, loss, health, reason, expected = 95.0, 92.0, 260.0, 4.5, "POOR", "Synthetic correlated compute, memory and network degradation.", "Multiple related signals correlated into one incident."
+
+    payload_id = f"sim-{uuid.uuid4().hex[:10]}"
+    now = datetime.datetime.now(datetime.timezone.utc)
+    timestamp = (now - datetime.timedelta(minutes=5)).isoformat() if scenario == "out_of_order_payload" else now.isoformat()
     sim_payload = TelemetryIngestPayload(
-        payload_id=payload_id,
-        collector_id=simulation_collector.id,
-        tenant_id=current_user.tenant_id,
-        timestamp_utc=now_utc,
-        cpu_utilization_pct=cpu,
-        memory_utilization_pct=mem,
-        disk_utilization_pct=disk,
-        latency_ms=lat,
-        packet_loss_pct=loss,
-        failed_login_count=auth_fail,
-        health_state=health,
-        health_reason=reason,
-        is_simulated=True,
-        scenario_name=scenario
+        payload_id=payload_id, collector_id=collector.id, tenant_id=current_user.tenant_id,
+        timestamp_utc=timestamp, cpu_utilization_pct=cpu, memory_utilization_pct=mem,
+        disk_utilization_pct=disk, latency_ms=lat, packet_loss_pct=loss,
+        failed_login_count=auth_fail, authentication_failure_rate_per_min=auth_rate,
+        suspicious_activity_score=suspicious, connectivity_status=connectivity,
+        security_event_severity="CRITICAL" if suspicious >= 90 or auth_fail >= 50 else "HIGH" if auth_fail >= 15 else "LOW",
+        health_state=health, health_reason=reason, is_simulated=True, scenario_name=scenario
     )
-
-    success, msg, res = await telemetry_service.process_ingestion(db, sim_payload)
-
+    success, msg, result = await telemetry_service.process_ingestion(db, sim_payload)
+    duplicate_prevented = None
     if scenario == "duplicate_payload":
-        # Immediately re-send identical payload_id to test idempotency
-        dup_success, dup_msg, dup_res = await telemetry_service.process_ingestion(db, sim_payload)
-        return {
-            "scenario": scenario,
-            "status": "DUPLICATE_TEST_EXECUTED",
-            "first_send": res,
-            "second_send": dup_res,
-            "duplicate_prevented": True
-        }
-
+        dup_success, dup_msg, dup_result = await telemetry_service.process_ingestion(db, sim_payload)
+        duplicate_prevented = not dup_success
+        result = {"first_delivery": result, "second_delivery": dup_result}
     return {
-        "scenario": scenario,
-        "message": f"Scenario '{scenario}' injected successfully into full AIOps pipeline.",
-        "result": res
+        "scenario": scenario, "synthetic": True, "pipeline_success": bool(success),
+        "pipeline_message": msg, "expected_detection": expected,
+        "actual_pipeline_result": result, "duplicate_prevented": duplicate_prevented,
+        "detection_note": "The API reports the actual ingestion result. Detection pass/fail must be determined from generated alerts/incidents; scenario injection alone is not proof of detection."
     }
 
 @router.get("/health")
