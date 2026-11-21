@@ -20,7 +20,6 @@ class WebSocketManager:
 
     def _matching_connections(self, tenant_id=None, organization_id=None):
         if tenant_id is None and organization_id is None:
-            # Fail closed: unscoped events must never be broadcast to all tenants.
             return []
         targets = []
         for connection, scope in list(self.active_connections.items()):
@@ -46,8 +45,11 @@ class WebSocketManager:
     async def broadcast(self, message_type, data=None, tenant_id=None, organization_id=None):
         if isinstance(message_type, dict) and data is None:
             event = message_type
-            tenant_id = tenant_id or event.get("tenant_id") or event.get("data", {}).get("tenant_id")
-            organization_id = organization_id or event.get("organization_id") or event.get("data", {}).get("organization_id")
+            event_data = event.get("data")
+            if not isinstance(event_data, dict):
+                event_data = {}
+            tenant_id = tenant_id or event.get("tenant_id") or event_data.get("tenant_id")
+            organization_id = organization_id or event.get("organization_id") or event_data.get("organization_id")
         else:
             event = {"type": message_type, "data": data}
         await self._send(json.dumps(event), tenant_id, organization_id)
