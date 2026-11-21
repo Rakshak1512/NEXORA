@@ -24,3 +24,22 @@ def test_legacy_registration_is_disabled(client):
     })
     assert res.status_code == 410
     assert "register-org" in res.json()["detail"]
+
+@pytest.mark.parametrize(
+    ("email", "expected_role"),
+    [
+        ("admin@cynera.io", "Super Administrator"),
+        ("operator@cynera.io", "Operator"),
+    ],
+)
+def test_development_demo_login(client, email, expected_role):
+    res = client.post("/api/auth/demo-login", json={"email": email})
+    assert res.status_code == 200
+    assert res.json()["user"]["email"] == email
+    assert res.json()["user"]["role"] == expected_role
+    assert res.json()["access_token"]
+
+
+def test_demo_login_rejects_unlisted_account(client):
+    res = client.post("/api/auth/demo-login", json={"email": "unknown@cynera.io"})
+    assert res.status_code == 403
