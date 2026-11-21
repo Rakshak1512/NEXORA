@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     APP_ENV: str = ""
     ENVIRONMENT: str = "production"
     DEBUG: bool = False
+    # Explicit opt-in for seeded, non-production demonstration accounts and fixtures.
+    DEMO_MODE: bool = True
 
     # Routing
     BACKEND_URL: str = "http://127.0.0.1:8000"

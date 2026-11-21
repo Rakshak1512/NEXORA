@@ -12,7 +12,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-[#070C14] text-slate-100 selection:bg-cyan-500 selection:text-black">
       {/* 1. TOP NAVIGATION */}
-      <header className="sticky top-0 z-50 glass-panel border-b border-[#1A2740] px-6 lg:px-12 h-20 flex items-center justify-between">
+      <header className="sticky top-0 z-50 glass-panel border-b border-[#1A2740] px-6 lg:px-12 h-20 flex items-center justify-between landing-nav">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
             <ShieldCheck className="w-5 h-5 text-slate-950 font-bold" />
@@ -24,12 +24,12 @@ const LandingPage = () => {
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-          <a href="#features" className="hover:text-cyan-400 transition">Features</a>
-          <a href="#architecture" className="hover:text-cyan-400 transition">Architecture</a>
-          <a href="#security" className="hover:text-cyan-400 transition">Security</a>
-          <a href="#aiops" className="hover:text-cyan-400 transition">AIOps</a>
-          <a href="#roadmap" className="hover:text-cyan-400 transition">Roadmap</a>
+        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300 landing-nav-links">
+          <a href="#features" className="nav-link hover:text-cyan-400 transition">Features</a>
+          <a href="#architecture" className="nav-link hover:text-cyan-400 transition">Architecture</a>
+          <a href="#security" className="nav-link hover:text-cyan-400 transition">Security</a>
+          <a href="#aiops" className="nav-link hover:text-cyan-400 transition">AIOps</a>
+          <a href="#roadmap" className="nav-link hover:text-cyan-400 transition">Roadmap</a>
         </nav>
 
         <div className="flex items-center gap-3">

@@ -334,25 +334,35 @@ def resend_otp(data: OTPResendRequest, db: Session = Depends(get_db)):
         "message": "A refreshed 6-digit verification code has been dispatched to your email."
     }
 
+@router.get("/demo-accounts")
+def list_demo_accounts():
+    """List the two supported demo personas only when demo mode is explicitly enabled."""
+    if not settings.DEMO_MODE:
+        raise HTTPException(status_code=404, detail="Not found.")
+    return [
+        {"email": "admin@cynera.io", "name": "Alex Vance", "role": "Super Administrator", "access": "Platform-wide administration", "password": "Cynera2026!Secure"},
+        {"email": "owner@cynera.io", "name": "Morgan Lee", "role": "Organization Owner", "access": "Workspace access and organization management", "password": "Cynera2026!Secure"}
+    ]
+
+
 @router.post("/demo-login")
 def demo_login(data: dict, db: Session = Depends(get_db)):
-    """Password/OTP-free access to fixed demo accounts in local development only."""
-    runtime_env = (settings.APP_ENV or settings.ENVIRONMENT or "production").strip().lower()
-    if runtime_env not in {"development", "dev", "test", "testing"}:
+    """Password/OTP-free access to the two fixed demo accounts in explicit demo mode."""
+    if not settings.DEMO_MODE:
         raise HTTPException(status_code=404, detail="Not found.")
 
-    email = str(data.get("email", "")).lower().strip()
-    allowed_demo_accounts = {
+    demo_roles = {
         "admin@cynera.io": "Super Administrator",
-        "operator@cynera.io": "Operator",
+        "owner@cynera.io": "Organization Owner"
     }
-    expected_role = allowed_demo_accounts.get(email)
+    email = str(data.get("email", "")).lower().strip()
+    expected_role = demo_roles.get(email)
     if not expected_role:
-        raise HTTPException(status_code=403, detail="Only the predefined demo accounts are available.")
+        raise HTTPException(status_code=403, detail="Only the Platform Admin and Workspace Owner demo accounts are available.")
 
     user = db.query(Profile).filter(Profile.email == email).first()
     if not user or user.role != expected_role or not user.is_active or not user.is_verified:
-        raise HTTPException(status_code=404, detail="Demo account is not seeded. Start the backend with an empty development database.")
+        raise HTTPException(status_code=404, detail="Demo account is not seeded. Ensure DEMO_MODE is enabled and restart the backend.")
 
     token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
     org = db.query(Organization).filter(Organization.id == user.organization_id).first()
@@ -363,7 +373,8 @@ def demo_login(data: dict, db: Session = Depends(get_db)):
         "user": {
             "id": user.id, "email": user.email, "full_name": user.full_name,
             "role": user.role, "job_title": user.job_title,
-            "organization_id": user.organization_id, "tenant_id": user.tenant_id
+            "organization_id": user.organization_id, "tenant_id": user.tenant_id,
+            "is_demo": True
         },
         "organization": {
             "id": org.id if org else None, "name": org.name if org else None,
@@ -391,8 +402,14 @@ def login_user(data: UserLogin, db: Session = Depends(get_db)):
     if not user.is_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email verification is required before login.")
 
-    # Platform administrators always require email OTP; other users may enable it.
-    if user.role == "Super Administrator" or user.two_factor_enabled or data.require_2fa:
+    # Two-factor authentication is required when enabled on the profile, requested by the user,
+    # or for non-demo Super Administrators.
+    requires_2fa = (
+        user.two_factor_enabled
+        or data.require_2fa
+        or (user.role == "Super Administrator" and clean_email != "admin@cynera.io")
+    )
+    if requires_2fa:
         challenge, otp_code = create_otp_challenge(db, clean_email, "login")
         send_login_2fa_otp(clean_email, user.full_name, otp_code)
         return {

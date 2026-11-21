@@ -29,7 +29,7 @@ def test_legacy_registration_is_disabled(client):
     ("email", "expected_role"),
     [
         ("admin@cynera.io", "Super Administrator"),
-        ("operator@cynera.io", "Operator"),
+        ("owner@cynera.io", "Organization Owner"),
     ],
 )
 def test_development_demo_login(client, email, expected_role):
