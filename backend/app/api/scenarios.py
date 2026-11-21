@@ -13,8 +13,10 @@ from ..schemas.schemas import TelemetryIngestPayload
 router = APIRouter(tags=["Operations & Scenarios"])
 
 @router.get("/scenarios/alerts")
-def list_scenario_alerts(db: Session = Depends(get_db)):
-    alerts = db.query(IncidentAlert).order_by(IncidentAlert.detected_at.desc()).limit(100).all()
+def list_scenario_alerts(current_user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.tenant_id:
+        return []
+    alerts = db.query(IncidentAlert).join(Collector, IncidentAlert.collector_id == Collector.id).filter(Collector.tenant_id == current_user.tenant_id).order_by(IncidentAlert.detected_at.desc()).limit(100).all()
     return [
         {
             "id": a.id,
