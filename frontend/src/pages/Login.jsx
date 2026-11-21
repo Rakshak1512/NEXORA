@@ -160,7 +160,7 @@ const Login = () => {
               <button type="button" disabled={loading} onClick={() => handleDemoLogin('admin@cynera.io', 'admin')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
                 <span className="block text-xs font-semibold text-slate-100">Platform Admin</span>
                 <span className="block text-[11px] text-slate-400 mt-1">admin@cynera.io</span>
-                <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
+                <span className="block text-[11px] text-cyan-300 mt-1">Sign in instantly (development)</span>
               </button>
               <button type="button" disabled={loading} onClick={() => handleDemoLogin('operator@cynera.io', 'owner')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
                 <span className="block text-xs font-semibold text-slate-100">Workspace User</span>
@@ -168,7 +168,6 @@ const Login = () => {
                 <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
               </button>
             </div>
-            <p className="text-[10px] text-slate-500 mt-2">Password for both: Cynera2026!Secure</p>
           </div>
         )}
 
