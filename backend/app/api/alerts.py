@@ -38,7 +38,13 @@ def list_alerts(
     if category:
         query = query.filter(func.upper(Alert.category) == category.upper())
     if severity and severity.upper() != "ALL":
-        query = query.filter(func.upper(Alert.severity) == severity.upper())
+        normalized_severity = severity.upper()
+        if normalized_severity == "WARNING":
+            query = query.filter(func.upper(Alert.severity).in_(["WARNING", "HIGH", "MEDIUM"]))
+        elif normalized_severity == "INFO":
+            query = query.filter(func.upper(Alert.severity).in_(["INFO", "LOW"]))
+        else:
+            query = query.filter(func.upper(Alert.severity) == normalized_severity)
     if alert_status and alert_status.upper() != "ALL":
         query = query.filter(func.upper(Alert.status) == alert_status.upper())
 
@@ -48,7 +54,7 @@ def list_alerts(
         {
             "id": a.id,
             "title": a.title,
-            "severity": (a.severity or "medium").lower(),
+            "severity": ("critical" if (a.severity or "").upper() == "CRITICAL" else "warning" if (a.severity or "").upper() in ("WARNING", "HIGH", "MEDIUM") else "info"),
             "category": getattr(a, "category", "SYSTEM") or "SYSTEM",
             "message": getattr(a, "message", a.title) or a.title,
             "resource_name": getattr(a, "resource_name", None),
