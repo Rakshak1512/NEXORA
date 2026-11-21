@@ -334,25 +334,45 @@ def resend_otp(data: OTPResendRequest, db: Session = Depends(get_db)):
         "message": "A refreshed 6-digit verification code has been dispatched to your email."
     }
 
+@router.get("/demo-accounts")
+def list_demo_accounts():
+    """Publicly list demo personas only when the deployment explicitly enables DEMO_MODE."""
+    if not settings.DEMO_MODE:
+        raise HTTPException(status_code=404, detail="Not found.")
+    return [
+        {"email": "admin@cynera.io", "name": "Alex Vance", "role": "Super Administrator", "access": "Platform-wide administration", "password": "Cynera2026!Secure"},
+        {"email": "owner@cynera.io", "name": "Morgan Lee", "role": "Organization Owner", "access": "Organization and team management", "password": "Cynera2026!Secure"},
+        {"email": "workspace-admin@cynera.io", "name": "Jordan Patel", "role": "Admin", "access": "Workspace administration", "password": "Cynera2026!Secure"},
+        {"email": "security@cynera.io", "name": "Taylor Brooks", "role": "Security Analyst", "access": "Alerts, incidents and security review", "password": "Cynera2026!Secure"},
+        {"email": "infra@cynera.io", "name": "Casey Morgan", "role": "Infrastructure Engineer", "access": "Collectors, infrastructure and network operations", "password": "Cynera2026!Secure"},
+        {"email": "operator@cynera.io", "name": "Sarah Chen", "role": "Operator", "access": "Daily monitoring and incident operations", "password": "Cynera2026!Secure"},
+        {"email": "viewer@cynera.io", "name": "Riley Kim", "role": "Viewer", "access": "Read-only monitoring and reports", "password": "Cynera2026!Secure"}
+    ]
+
+
 @router.post("/demo-login")
 def demo_login(data: dict, db: Session = Depends(get_db)):
-    """Password/OTP-free access to fixed demo accounts in local development only."""
-    runtime_env = (settings.APP_ENV or settings.ENVIRONMENT or "production").strip().lower()
-    if runtime_env not in {"development", "dev", "test", "testing"}:
+    """Password/OTP-free access to fixed demo accounts only when DEMO_MODE is explicitly enabled."""
+    if not settings.DEMO_MODE:
         raise HTTPException(status_code=404, detail="Not found.")
 
-    email = str(data.get("email", "")).lower().strip()
-    allowed_demo_accounts = {
+    demo_roles = {
         "admin@cynera.io": "Super Administrator",
+        "owner@cynera.io": "Organization Owner",
+        "workspace-admin@cynera.io": "Admin",
+        "security@cynera.io": "Security Analyst",
+        "infra@cynera.io": "Infrastructure Engineer",
         "operator@cynera.io": "Operator",
+        "viewer@cynera.io": "Viewer"
     }
-    expected_role = allowed_demo_accounts.get(email)
+    email = str(data.get("email", "")).lower().strip()
+    expected_role = demo_roles.get(email)
     if not expected_role:
-        raise HTTPException(status_code=403, detail="Only the predefined demo accounts are available.")
+        raise HTTPException(status_code=403, detail="Only the published demo accounts are available.")
 
     user = db.query(Profile).filter(Profile.email == email).first()
     if not user or user.role != expected_role or not user.is_active or not user.is_verified:
-        raise HTTPException(status_code=404, detail="Demo account is not seeded. Start the backend with an empty development database.")
+        raise HTTPException(status_code=404, detail="Demo account is not seeded. Ensure DEMO_MODE is enabled and restart the backend.")
 
     token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
     org = db.query(Organization).filter(Organization.id == user.organization_id).first()
@@ -363,7 +383,8 @@ def demo_login(data: dict, db: Session = Depends(get_db)):
         "user": {
             "id": user.id, "email": user.email, "full_name": user.full_name,
             "role": user.role, "job_title": user.job_title,
-            "organization_id": user.organization_id, "tenant_id": user.tenant_id
+            "organization_id": user.organization_id, "tenant_id": user.tenant_id,
+            "is_demo": True
         },
         "organization": {
             "id": org.id if org else None, "name": org.name if org else None,
