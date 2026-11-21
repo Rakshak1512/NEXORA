@@ -24,6 +24,11 @@ if raw_db_url:
         # retain a process-local SQLAlchemy connection pool in serverless workers.
         database_url = make_url(raw_db_url)
 
+        # The backend installs Psycopg 3 (psycopg[binary]); make the SQLAlchemy
+        # driver explicit instead of falling back to the legacy psycopg2 driver.
+        if database_url.drivername == "postgresql":
+            database_url = database_url.set(drivername="postgresql+psycopg")
+
         # Supabase shared pooler port 5432 is session mode. Serverless requests
         # should use transaction mode (6543), which shares PostgreSQL connections.
         if (
