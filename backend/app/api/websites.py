@@ -1,11 +1,14 @@
 import json
 import uuid
 import datetime
+import logging
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from pydantic import BaseModel, HttpUrl
+from sqlalchemy.exc import SQLAlchemyError
+from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from ..database import get_db
 from ..models.models import (
@@ -17,16 +20,19 @@ from ..services.website_checker import execute_website_check, verify_website_own
 from ..services.website_scheduler import website_scheduler
 
 router = APIRouter(prefix="/websites", tags=["Website Monitoring"])
+logger = logging.getLogger("cynera.websites")
 
 # --- Pydantic Schemas ---
 class WebsiteCreateRequest(BaseModel):
-    name: str
-    url: str
+    name: str = Field(min_length=1, max_length=120)
+    # Accepts a fully-qualified URL or a bare public hostname/IP. The SSRF
+    # validator adds https:// when the scheme is omitted.
+    url: str = Field(min_length=1, max_length=2048)
     description: Optional[str] = None
-    monitoring_interval_seconds: Optional[int] = 60
+    monitoring_interval_seconds: Optional[int] = Field(default=60, ge=30, le=86400)
     expected_status_codes: Optional[Any] = [200, 201, 204, 301, 302]
-    timeout_seconds: Optional[int] = 10
-    check_timeout_seconds: Optional[int] = None
+    timeout_seconds: Optional[int] = Field(default=10, ge=2, le=60)
+    check_timeout_seconds: Optional[int] = Field(default=None, ge=2, le=60)
     verification_method: Optional[str] = "dns_txt"
 
 class WebsiteUpdateRequest(BaseModel):
@@ -106,58 +112,73 @@ async def create_monitored_website(
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="User not associated with an organization.")
 
-    # 1. Strict SSRF Guard check
-    is_safe, error_msg, norm_url, resolved_ips = validate_public_url(data.url)
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Friendly target name cannot be empty.")
+
+    # DNS resolution is blocking; move it off the async event loop used by Vercel.
+    is_safe, error_msg, norm_url, resolved_ips = await run_in_threadpool(
+        validate_public_url,
+        data.url,
+    )
     if not is_safe:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"SSRF Protection Policy Violation: {error_msg}"
+            detail=error_msg,
         )
 
-    # 2. Check duplicate URL in same organization
-    existing = db.query(MonitoredWebsite).filter(
-        MonitoredWebsite.organization_id == current_user.organization_id,
-        MonitoredWebsite.url == norm_url
-    ).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This website URL is already registered in your organization."
-        )
+    try:
+        existing = db.query(MonitoredWebsite).filter(
+            MonitoredWebsite.organization_id == current_user.organization_id,
+            MonitoredWebsite.url == norm_url
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This website URL is already registered in your organization."
+            )
 
-    exp_codes = data.expected_status_codes
-    if isinstance(exp_codes, str):
-        try:
-            exp_codes = [int(c.strip()) for c in exp_codes.split(",") if c.strip().isdigit()]
-        except Exception:
+        exp_codes = data.expected_status_codes
+        if isinstance(exp_codes, str):
+            try:
+                exp_codes = [int(code.strip()) for code in exp_codes.split(",") if code.strip().isdigit()]
+            except Exception:
+                exp_codes = [200, 201, 204, 301, 302]
+        elif not isinstance(exp_codes, list):
             exp_codes = [200, 201, 204, 301, 302]
-    elif not isinstance(exp_codes, list):
-        exp_codes = [200, 201, 204, 301, 302]
+        if not exp_codes:
+            exp_codes = [200, 201, 204, 301, 302]
 
-    verification_token = f"cynera-verify-{uuid.uuid4().hex[:16]}"
-
-    # 3. Create website record
-    site = MonitoredWebsite(
-        organization_id=current_user.organization_id,
-        created_by=current_user.id,
-        name=data.name.strip(),
-        url=norm_url,
-        description=data.description,
-        is_verified=False, # Monitoring is blocked until domain ownership is proven
-        verification_method=data.verification_method or "dns_txt",
-        verification_token=verification_token,
-        status="PENDING",
-        monitoring_interval_seconds=data.monitoring_interval_seconds or 60,
-        expected_status_codes=json.dumps(exp_codes),
-        timeout_seconds=data.timeout_seconds or data.check_timeout_seconds or 10,
-        is_active=True,
-        dns_resolved_ips=json.dumps(resolved_ips)
-    )
-    db.add(site)
-    db.commit()
-    db.refresh(site)
-
-    # Do not probe or monitor an unverified domain. The owner must prove control first.
+        verification_token = f"cynera-verify-{uuid.uuid4().hex[:16]}"
+        site = MonitoredWebsite(
+            organization_id=current_user.organization_id,
+            created_by=current_user.id,
+            name=name,
+            url=norm_url,
+            description=data.description,
+            is_verified=False,
+            verification_method=data.verification_method or "dns_txt",
+            verification_token=verification_token,
+            status="PENDING",
+            monitoring_interval_seconds=data.monitoring_interval_seconds or 60,
+            expected_status_codes=json.dumps(exp_codes),
+            timeout_seconds=data.timeout_seconds or data.check_timeout_seconds or 10,
+            is_active=True,
+            dns_resolved_ips=json.dumps(resolved_ips)
+        )
+        db.add(site)
+        db.commit()
+        db.refresh(site)
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Supabase failed while saving a monitored website.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The URL passed public-IP validation, but Supabase could not save the monitored target. Check the backend DATABASE_URL/SUPABASE_DB_URL and connection-pooler settings, then retry."
+        )
 
     return {
         "id": site.id,
@@ -166,6 +187,7 @@ async def create_monitored_website(
         "url": site.url,
         "verification_token": verification_token,
         "status": "created",
+        "resolved_ips": resolved_ips,
         "message": "Website registered. Complete domain ownership verification before monitoring can begin."
     }
 
