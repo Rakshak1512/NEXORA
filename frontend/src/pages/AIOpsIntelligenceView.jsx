@@ -14,7 +14,7 @@ const AIOpsIntelligenceView = () => {
     try {
       const [sRes, aRes] = await Promise.all([
         api.get('/aiops/status'),
-        api.get('/alerts')
+        api.get('/scenarios/alerts')
       ]);
       setStatus(sRes.data);
       setAlerts(aRes.data);
@@ -63,9 +63,9 @@ const AIOpsIntelligenceView = () => {
         </Card>
         <Card title="Mean Confidence" icon={Sparkles}>
           <div className="text-2xl font-bold text-emerald-400">
-            {status?.average_confidence_score ?? 94.8}%
+            {status?.average_confidence_score == null ? 'N/A' : `${status.average_confidence_score}%`}
           </div>
-          <span className="text-[11px] text-slate-400 mt-1 block">Deterministic causal score</span>
+          <span className="text-[11px] text-slate-400 mt-1 block">Only shown when calculated from real results</span>
         </Card>
       </div>
 
@@ -96,18 +96,25 @@ const AIOpsIntelligenceView = () => {
 
         <Card title="Event Correlation & Incident Graph" subtitle="Noise reduction: collapsing alert storms into single actionable incidents">
           <div className="p-4 rounded-xl bg-[#070C14] border border-[#1A2740] font-mono text-xs space-y-3">
-            <div className="text-slate-400">Incoming Alert Cluster:</div>
-            <div className="flex flex-col gap-1.5 pl-3 border-l-2 border-cyan-500/40 text-slate-300">
-              <span className="text-rose-400">[02:40:12] CPU_SATURATION on col-prod-core-01 (96.4%)</span>
-              <span className="text-amber-400">[02:40:18] LATENCY_DEGRADATION on col-prod-core-01 (215ms)</span>
-              <span className="text-teal-300">[02:40:24] GC_PAUSE_ALERT on col-prod-core-01 (&gt;800ms)</span>
-            </div>
-            <div className="pt-2 border-t border-[#1A2740] text-emerald-400">
-              Correlator Decision: Merged into 1 unified incident:
-              <div className="text-slate-200 mt-1 font-sans font-bold">
-                INC-2026-0042: Worker Pool Exhaustion & Cascading Latency
+            <div className="text-slate-400">Latest detected anomalies for your tenant:</div>
+            {loading ? (
+              <p className="text-slate-400">Loading anomaly feed...</p>
+            ) : alerts.length === 0 ? (
+              <p className="text-slate-400">No anomaly records have been detected yet.</p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {alerts.slice(0, 12).map((alert) => (
+                  <div key={alert.id} className="border-l-2 border-cyan-500/40 pl-3 py-1">
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-cyan-300">{alert.alert_type}</span>
+                      <Badge variant={String(alert.severity).toLowerCase() === 'critical' ? 'danger' : 'warning'}>{alert.severity}</Badge>
+                    </div>
+                    <p className="text-slate-300 mt-1">{alert.message}</p>
+                    <p className="text-slate-500 mt-1">{alert.collector_id} · {alert.detected_at ? new Date(alert.detected_at).toLocaleString() : 'Time unavailable'}</p>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </Card>
       </div>
