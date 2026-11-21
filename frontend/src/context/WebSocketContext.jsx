@@ -7,10 +7,10 @@ const WebSocketContext = createContext();
 export const getWebSocketUrl = () => {
   const configuredUrl = import.meta.env.VITE_API_URL;
   const fallbackUrl = import.meta.env.DEV ? API_BASE_URL : window.location.origin;
-  const cleanBase = (configuredUrl || fallbackUrl).replace(/\\/+$/, '').replace(/\\/api$/, '');
+  const cleanBase = (configuredUrl || fallbackUrl).replace(/\/+$/, '').replace(/\/api$/, '');
   const wsProtocol = cleanBase.startsWith('https://') ? 'wss://' : 'ws://';
-  const wsHost = cleanBase.replace(/^https?:\\/\\//, '');
-  return `${wsProtocol}${wsHost}/ws`;
+  const wsHost = cleanBase.replace(/^https?:\/\//, '');
+  return \`${wsProtocol}${wsHost}/ws\`;
 };
 
 export const WebSocketProvider = ({ children }) => {
@@ -34,10 +34,7 @@ export const WebSocketProvider = ({ children }) => {
       if (stopped) return;
       try {
         ws = new WebSocket(getWebSocketUrl());
-
-        ws.onopen = () => {
-          ws.send(JSON.stringify({ type: 'AUTH', token }));
-        };
+        ws.onopen = () => ws.send(JSON.stringify({ type: 'AUTH', token }));
 
         ws.onmessage = (event) => {
           try {
@@ -47,7 +44,7 @@ export const WebSocketProvider = ({ children }) => {
               return;
             }
             setLatestEvent(parsed);
-          } catch (e) {
+          } catch (_) {
             // Ignore malformed server messages.
           }
         };
@@ -58,19 +55,17 @@ export const WebSocketProvider = ({ children }) => {
             reconnectTimeout = setTimeout(connect, 3000);
           }
         };
-
         ws.onerror = () => {
           setIsConnected(false);
           try { ws.close(); } catch (_) {}
         };
-      } catch (err) {
+      } catch (_) {
         setIsConnected(false);
         if (!stopped) reconnectTimeout = setTimeout(connect, 3000);
       }
     };
 
     connect();
-
     return () => {
       stopped = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
