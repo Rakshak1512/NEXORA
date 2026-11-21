@@ -12,7 +12,16 @@ const Login = () => {
   const [require2fa, setRequire2fa] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [demoAccounts, setDemoAccounts] = useState([]);
+  const [demoAccounts, setDemoAccounts] = useState([
+    { email: 'admin@cynera.io', name: 'Alex Vance', role: 'Super Administrator', access: 'Platform-wide administration', password: 'Cynera2026!Secure' },
+    { email: 'owner@cynera.io', name: 'Morgan Lee', role: 'Organization Owner', access: 'Organization and team management', password: 'Cynera2026!Secure' },
+    { email: 'workspace-admin@cynera.io', name: 'Jordan Patel', role: 'Admin', access: 'Workspace administration', password: 'Cynera2026!Secure' },
+    { email: 'security@cynera.io', name: 'Taylor Brooks', role: 'Security Analyst', access: 'Alerts, incidents and security review', password: 'Cynera2026!Secure' },
+    { email: 'infra@cynera.io', name: 'Casey Morgan', role: 'Infrastructure Engineer', access: 'Collectors, infrastructure and network operations', password: 'Cynera2026!Secure' },
+    { email: 'operator@cynera.io', name: 'Sarah Chen', role: 'Operator', access: 'Daily monitoring and incident operations', password: 'Cynera2026!Secure' },
+    { email: 'viewer@cynera.io', name: 'Riley Kim', role: 'Viewer', access: 'Read-only monitoring and reports', password: 'Cynera2026!Secure' }
+  ]);
+  const [demoAvailable, setDemoAvailable] = useState(false);
   const [demoLoading, setDemoLoading] = useState(true);
   const { login, demoLogin, logout } = useAuth();
   const navigate = useNavigate();
@@ -20,8 +29,8 @@ const Login = () => {
   useEffect(() => {
     let active = true;
     api.get('/auth/demo-accounts')
-      .then((res) => { if (active) setDemoAccounts(Array.isArray(res.data) ? res.data : []); })
-      .catch(() => { if (active) setDemoAccounts([]); })
+      .then((res) => { if (active && Array.isArray(res.data) && res.data.length) { setDemoAccounts(res.data); setDemoAvailable(true); } })
+      .catch(() => { if (active) setDemoAvailable(false); })
       .finally(() => { if (active) setDemoLoading(false); });
     return () => { active = false; };
   }, []);
@@ -175,9 +184,10 @@ const Login = () => {
                 <button
                   key={account.email}
                   type="button"
-                  disabled={loading}
+                  disabled={loading || !demoAvailable}
                   onClick={() => handleDemoLogin(account.email, account.role === 'Super Administrator' ? 'admin' : 'owner')}
                   className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition disabled:opacity-50"
+                  title={demoAvailable ? 'Enter this demo persona' : 'Enable DEMO_MODE on the backend to use demo login'}
                 >
                   <span className="block text-xs font-semibold text-slate-100">{account.name}</span>
                   <span className="block text-[11px] text-cyan-300 mt-1">{account.role}</span>
@@ -191,7 +201,12 @@ const Login = () => {
           </div>
         )}
         {demoLoading && (
-          <p className="mt-4 text-center text-[10px] text-slate-500">Checking whether demo access is enabled…</p>
+          <p className="mt-4 text-center text-[10px] text-slate-500">Checking demo access…</p>
+        )}
+        {!demoLoading && !demoAvailable && (
+          <div role="status" className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+            Demo accounts are displayed, but demo login is currently disabled or the backend is unreachable. Set <strong>DEMO_MODE=true</strong> on the backend and restart/redeploy it. Use this only with a disposable demo database.
+          </div>
         )}
 
         <div className="mt-6 text-center text-xs text-slate-400">
