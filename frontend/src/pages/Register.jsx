@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock, Mail, User, Building2, Globe, Briefcase, Users, AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, User, Building2, Globe, Briefcase, Users, AlertCircle, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import Button from '../components/common/Button';
 
@@ -21,6 +21,18 @@ const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const fillSampleDetails = () => {
+    setFullName('Alex Morgan');
+    setEmail('alex.morgan@example.com');
+    setWebsiteUrl('https://example.com');
+    setOrgName('Northstar Technology Labs');
+    setIndustry('Technology');
+    setOrgSize('10-50');
+    setJobTitle('Infrastructure Administrator');
+    setCountry('India');
+    setError('');
+  };
 
   // Password strength check
   const getPasswordStrength = () => {
@@ -91,7 +103,8 @@ const Register = () => {
       {/* Background Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-cyan-500/10 blur-[150px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-2xl glass-panel p-8 md:p-10 rounded-2xl border border-[#1A2740] shadow-2xl relative z-10">
+      <div className="w-full max-w-2xl glass-panel p-8 md:p-10 rounded-2xl border border-[#1A2740] shadow-2xl relative z-10 auth-card">
+        <Link to="/login" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-cyan-300 transition mb-5"><ArrowLeft className="w-4 h-4" /> Back to login</Link>
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2.5 mb-3">
@@ -118,6 +131,7 @@ const Register = () => {
           </div>
         )}
 
+        <div className="flex justify-end -mt-1 mb-4"><button type="button" onClick={fillSampleDetails} className="text-[11px] font-semibold text-cyan-300 hover:text-white border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-lg px-3 py-2 transition">Fill sample organization details</button></div>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* SECTION 1: Personal Profile */}
           <div className="space-y-4">

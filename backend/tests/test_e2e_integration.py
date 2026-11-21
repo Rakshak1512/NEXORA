@@ -112,6 +112,6 @@ def test_full_system_lifecycle_e2e():
 
     # 8. Test 13 Scenarios Trigger
     for sc in ["cpu_spike", "memory_spike", "latency_increase", "duplicate_payload"]:
-        sc_res = client.post("/api/scenarios/trigger", json={"scenario": sc})
+        sc_res = client.post("/api/scenarios/trigger", json={"scenario": sc}, headers=auth_headers)
         assert sc_res.status_code == 200
 

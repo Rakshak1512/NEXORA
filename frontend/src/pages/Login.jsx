@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowRight, ArrowLeft, AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
+import api from '../services/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -10,37 +11,21 @@ const Login = () => {
   const [accountType, setAccountType] = useState('owner');
   const [require2fa, setRequire2fa] = useState(false);
   const [error, setError] = useState('');
+  const [autoFillMsg, setAutoFillMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, demoLogin, logout } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleDemoLogin = async (demoEmail, type) => {
-    setError('');
-    setLoading(true);
+  const handleFillCredentials = (fillEmail, fillPassword, type) => {
+    setEmail(fillEmail);
+    setPassword(fillPassword);
     setAccountType(type);
-    setEmail(demoEmail);
-    setPassword('Cynera2026!Secure');
-    try {
-      await demoLogin(demoEmail);
-      navigate('/dashboard');
-    } catch (err) {
-      // Fallback: attempt direct credential login
-      try {
-        const res = await login(demoEmail, 'Cynera2026!Secure', false);
-        if (res && res.requireOtp) {
-          navigate(`/verify-otp?email=${encodeURIComponent(demoEmail)}&purpose=login`);
-        } else {
-          navigate('/dashboard');
-        }
-      } catch (fallbackErr) {
-        const msg = fallbackErr.response?.data?.detail 
-          || (fallbackErr.request ? 'Cannot connect to backend server. Please verify FastAPI is running at http://127.0.0.1:8000.' : fallbackErr.message) 
-          || 'Unable to open demo account.';
-        setError(msg);
-      }
-    } finally {
-      setLoading(false);
-    }
+    setRequire2fa(false);
+    setError('');
+    setAutoFillMsg('Demo credentials filled successfully.');
+    setTimeout(() => {
+      setAutoFillMsg('');
+    }, 4000);
   };
 
   const handleSubmit = async (e) => {
@@ -65,11 +50,12 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070C14] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#070C14] flex items-center justify-center p-4 relative overflow-hidden auth-scene">
       {/* Background Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="glass-panel w-full max-w-md p-8 md:p-10 rounded-2xl border border-[#1A2740] shadow-2xl relative z-10">
+      <div className="glass-panel w-full max-w-md p-8 md:p-10 rounded-2xl border border-[#1A2740] shadow-2xl relative z-10 auth-card">
+        <Link to="/" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-cyan-300 transition mb-5"><ArrowLeft className="w-4 h-4" /> Back to landing page</Link>
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
@@ -82,9 +68,16 @@ const Login = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-rose-400 text-xs">
+          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-rose-400 text-xs">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {autoFillMsg && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-emerald-400 text-xs animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{autoFillMsg}</span>
           </div>
         )}
 
@@ -165,27 +158,52 @@ const Login = () => {
           </Button>
         </form>
 
-        {import.meta.env.DEV && (
-          <div className="mt-5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">Test users</p>
-              <span className="text-[10px] text-slate-500">Development only</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button type="button" disabled={loading} onClick={() => handleDemoLogin('admin@cynera.io', 'admin')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
-                <span className="block text-xs font-semibold text-slate-100">Platform Admin</span>
-                <span className="block text-[11px] text-slate-400 mt-1">admin@cynera.io</span>
-                <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
-              </button>
-              <button type="button" disabled={loading} onClick={() => handleDemoLogin('operator@cynera.io', 'owner')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
-                <span className="block text-xs font-semibold text-slate-100">Workspace User</span>
-                <span className="block text-[11px] text-slate-400 mt-1">operator@cynera.io</span>
-                <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-2">Password for both: Cynera2026!Secure</p>
+        <div className="mt-6 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">Demo Accounts</p>
+            <span className="text-[10px] text-amber-300">Click to fill</span>
           </div>
-        )}
+          <p className="text-[11px] text-slate-400 mb-3">Select a demo persona to automatically fill credentials, then click <strong>Sign In</strong>.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Platform Admin Card */}
+            <button
+              type="button"
+              onClick={() => handleFillCredentials('admin@cynera.io', 'Cynera2026!Secure', 'admin')}
+              className={`rounded-lg border p-3 text-left transition ${
+                email === 'admin@cynera.io' ? 'border-cyan-400 bg-cyan-900/30 ring-1 ring-cyan-400' : 'border-[#1A2740] bg-[#0B1322] hover:border-cyan-500/60'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-100">Platform Admin</span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Super Admin</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 mt-1 font-mono">admin@cynera.io</span>
+              <span className="block text-[10px] text-slate-500 mt-0.5">Platform-wide administration</span>
+              <span className="block text-[10px] text-cyan-400 hover:text-cyan-300 font-medium mt-2">
+                Auto-fill credentials &rarr;
+              </span>
+            </button>
+
+            {/* Workspace Account Card */}
+            <button
+              type="button"
+              onClick={() => handleFillCredentials('owner@cynera.io', 'Cynera2026!Secure', 'owner')}
+              className={`rounded-lg border p-3 text-left transition ${
+                email === 'owner@cynera.io' ? 'border-cyan-400 bg-cyan-900/30 ring-1 ring-cyan-400' : 'border-[#1A2740] bg-[#0B1322] hover:border-cyan-500/60'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-100">Workspace Account</span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300">Org Owner</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 mt-1 font-mono">owner@cynera.io</span>
+              <span className="block text-[10px] text-slate-500 mt-0.5">Workspace & telemetry access</span>
+              <span className="block text-[10px] text-cyan-400 hover:text-cyan-300 font-medium mt-2">
+                Auto-fill credentials &rarr;
+              </span>
+            </button>
+          </div>
+        </div>
 
         <div className="mt-6 text-center text-xs text-slate-400">
           Need a workspace for your company?{' '}

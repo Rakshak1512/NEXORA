@@ -2,9 +2,9 @@ name: CYNERA CI
 
 on:
   push:
-    branches: [main, security/admin-otp-hardening]
+    branches: [main, security/admin-otp-hardening, fix/cynera-dashboard-api-and-aiops, feature/cynera-full-demo-and-service-hardening]
   pull_request:
-    branches: [main]
+    branches: [main, security/admin-otp-hardening, fix/cynera-dashboard-api-and-aiops]
   workflow_dispatch:
 
 permissions:

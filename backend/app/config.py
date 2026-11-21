@@ -11,9 +11,11 @@ class Settings(BaseSettings):
     model_config = ConfigDict(env_file=(_backend_env, ".env"), extra="ignore")
 
     APP_NAME: str = "CYNERA"
-    APP_ENV: str = "production"
+    APP_ENV: str = ""
     ENVIRONMENT: str = "production"
     DEBUG: bool = False
+    # Explicit opt-in for seeded, non-production demonstration accounts and fixtures.
+    DEMO_MODE: bool = True
 
     # Routing
     BACKEND_URL: str = "http://127.0.0.1:8000"
@@ -71,7 +73,7 @@ class Settings(BaseSettings):
     OTP_EXPIRY_MINUTES: int = 5
     OTP_LENGTH: int = 6
     OTP_REQUIRED: bool = True
-    OTP_HASH_SECRET: str = "cynera-otp-hmac-salt-production-secure-key-2026-v1"
+    OTP_HASH_SECRET: str = ""
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"

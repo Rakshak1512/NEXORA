@@ -85,6 +85,7 @@ export const AuthProvider = ({ children }) => {
       organization, 
       loading, 
       login, 
+      demoLogin,
       register, 
       setSession, 
       logout, 
