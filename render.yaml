@@ -11,7 +11,7 @@ services:
       - key: APP_ENV
         value: production
       - key: DEMO_MODE
-        value: "false"
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET_KEY
