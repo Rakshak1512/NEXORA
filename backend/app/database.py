@@ -1,8 +1,9 @@
 import os
 import logging
 from sqlalchemy import create_engine, event, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 from fastapi import HTTPException, status
 from .config import settings
 
@@ -19,16 +20,55 @@ DATABASE_STATUS = "CONNECTED" if IS_DATABASE_CONFIGURED else "BLOCKED_BY_CONFIGU
 
 if raw_db_url:
     if "postgresql" in raw_db_url or "postgres" in raw_db_url:
-        # PostgreSQL Connection Pooling for Supabase / Cloud
-        engine = create_engine(
-            raw_db_url,
-            pool_size=10,
-            max_overflow=20,
-            pool_timeout=30,
-            pool_recycle=1800,
-            pool_pre_ping=True
-        )
-        logger.info("[Database] Primary engine configured: Supabase PostgreSQL (pooled).")
+        # Vercel functions are short-lived and can scale horizontally. Do not
+        # retain a process-local SQLAlchemy connection pool in serverless workers.
+        database_url = make_url(raw_db_url)
+
+        # Supabase shared pooler port 5432 is session mode. Serverless requests
+        # should use transaction mode (6543), which shares PostgreSQL connections.
+        if (
+            database_url.host
+            and database_url.host.endswith(".pooler.supabase.com")
+            and database_url.port == 5432
+        ):
+            database_url = database_url.set(port=6543)
+            logger.warning(
+                "[Database] Supabase session pooler URL detected; "
+                "using transaction pooler port 6543 for serverless-safe connections."
+            )
+
+        connect_args = {}
+        # Supavisor transaction mode does not support prepared statements.
+        # Psycopg 3 prepares statements automatically after a threshold unless disabled.
+        if database_url.drivername == "postgresql+psycopg":
+            connect_args["prepare_threshold"] = None
+
+        if os.getenv("VERCEL", "").lower() in {"1", "true"}:
+            engine = create_engine(
+                database_url,
+                poolclass=NullPool,
+                pool_pre_ping=True,
+                connect_args=connect_args,
+            )
+            logger.info(
+                "[Database] Supabase PostgreSQL configured with NullPool "
+                "for Vercel serverless execution."
+            )
+        else:
+            # Keep local/stationary deployments deliberately small as well.
+            engine = create_engine(
+                database_url,
+                pool_size=2,
+                max_overflow=0,
+                pool_timeout=30,
+                pool_recycle=1800,
+                pool_pre_ping=True,
+                connect_args=connect_args,
+            )
+            logger.info(
+                "[Database] Supabase PostgreSQL configured with a bounded "
+                "local connection pool (2 connections, no overflow)."
+            )
     elif "sqlite" in raw_db_url:
         engine = create_engine(raw_db_url, connect_args={"check_same_thread": False})
         @event.listens_for(Engine, "connect")
