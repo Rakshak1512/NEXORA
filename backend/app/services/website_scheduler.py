@@ -276,24 +276,24 @@ class WebsiteMonitoringScheduler:
                     if ai_eval_list and len(ai_eval_list) > 0:
                         ai_eval = ai_eval_list[0]
                         if ai_eval.get("is_anomaly"):
-                        existing_alert = db.query(Alert).filter(
-                            Alert.organization_id == site.organization_id,
-                            Alert.resource_id == site.id,
-                            Alert.category == "ai_anomaly",
-                            Alert.status == "ACTIVE"
-                        ).first()
-                        if not existing_alert:
-                            anomaly_alert = Alert(
-                                organization_id=site.organization_id,
-                                title=f"AI Anomaly: {site.name} Performance Drift",
-                                severity=ai_eval.get("severity", "HIGH"),
-                                category="ai_anomaly",
-                                resource_name=site.name,
-                                resource_id=site.id,
-                                evidence=ai_eval.get("explanation") or "Statistical and ML anomaly score exceeded threshold.",
-                                status="ACTIVE"
-                            )
-                            db.add(anomaly_alert)
+                            existing_alert = db.query(Alert).filter(
+                                Alert.organization_id == site.organization_id,
+                                Alert.resource_id == site.id,
+                                Alert.category == "ai_anomaly",
+                                Alert.status == "ACTIVE"
+                            ).first()
+                            if not existing_alert:
+                                anomaly_alert = Alert(
+                                    organization_id=site.organization_id,
+                                    title=f"AI Anomaly: {site.name} Performance Drift",
+                                    severity=ai_eval.get("severity", "HIGH"),
+                                    category="ai_anomaly",
+                                    resource_name=site.name,
+                                    resource_id=site.id,
+                                    evidence=ai_eval.get("explanation") or "Statistical and ML anomaly score exceeded threshold.",
+                                    status="ACTIVE"
+                                )
+                                db.add(anomaly_alert)
                 except Exception as ai_err:
                     logger.warning(f"[Scheduler] AI anomaly evaluation non-fatal error: {ai_err}")
 
