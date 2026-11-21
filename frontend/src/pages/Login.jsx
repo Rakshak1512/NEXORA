@@ -14,12 +14,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [demoAccounts, setDemoAccounts] = useState([
     { email: 'admin@cynera.io', name: 'Alex Vance', role: 'Super Administrator', access: 'Platform-wide administration', password: 'Cynera2026!Secure' },
-    { email: 'owner@cynera.io', name: 'Morgan Lee', role: 'Organization Owner', access: 'Organization and team management', password: 'Cynera2026!Secure' },
-    { email: 'workspace-admin@cynera.io', name: 'Jordan Patel', role: 'Admin', access: 'Workspace administration', password: 'Cynera2026!Secure' },
-    { email: 'security@cynera.io', name: 'Taylor Brooks', role: 'Security Analyst', access: 'Alerts, incidents and security review', password: 'Cynera2026!Secure' },
-    { email: 'infra@cynera.io', name: 'Casey Morgan', role: 'Infrastructure Engineer', access: 'Collectors, infrastructure and network operations', password: 'Cynera2026!Secure' },
-    { email: 'operator@cynera.io', name: 'Sarah Chen', role: 'Operator', access: 'Daily monitoring and incident operations', password: 'Cynera2026!Secure' },
-    { email: 'viewer@cynera.io', name: 'Riley Kim', role: 'Viewer', access: 'Read-only monitoring and reports', password: 'Cynera2026!Secure' }
+    { email: 'owner@cynera.io', name: 'Morgan Lee', role: 'Organization Owner', access: 'Workspace access and organization management', password: 'Cynera2026!Secure' }
   ]);
   const [demoAvailable, setDemoAvailable] = useState(false);
   const [demoLoading, setDemoLoading] = useState(true);
@@ -29,7 +24,7 @@ const Login = () => {
   useEffect(() => {
     let active = true;
     api.get('/auth/demo-accounts')
-      .then((res) => { if (active && Array.isArray(res.data) && res.data.length) { setDemoAccounts(res.data); setDemoAvailable(true); } })
+      .then((res) => { if (active && Array.isArray(res.data) && res.data.length) { setDemoAccounts(res.data.filter((account) => ['admin@cynera.io', 'owner@cynera.io'].includes(account.email))); setDemoAvailable(true); } })
       .catch(() => { if (active) setDemoAvailable(false); })
       .finally(() => { if (active) setDemoLoading(false); });
     return () => { active = false; };
