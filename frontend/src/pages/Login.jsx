@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
+import api from '../services/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,8 +12,19 @@ const Login = () => {
   const [require2fa, setRequire2fa] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demoAccounts, setDemoAccounts] = useState([]);
+  const [demoLoading, setDemoLoading] = useState(true);
   const { login, demoLogin, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let active = true;
+    api.get('/auth/demo-accounts')
+      .then((res) => { if (active) setDemoAccounts(Array.isArray(res.data) ? res.data : []); })
+      .catch(() => { if (active) setDemoAccounts([]); })
+      .finally(() => { if (active) setDemoLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const handleDemoLogin = async (demoEmail, type) => {
     setError('');
@@ -150,25 +162,35 @@ const Login = () => {
           </Button>
         </form>
 
-        {import.meta.env.DEV && (
+        {demoAccounts.length > 0 && (
           <div className="mt-5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">Test users</p>
-              <span className="text-[10px] text-slate-500">Development only</span>
+              <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">CYNERA demo workspace accounts</p>
+              <span className="text-[10px] text-amber-300">Synthetic demo data</span>
             </div>
+            <p className="text-[11px] text-slate-400 mb-3">Choose a role to enter with the correct permissions. Demo data is shared and may be changed by other demo users.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button type="button" disabled={loading} onClick={() => handleDemoLogin('admin@cynera.io', 'admin')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
-                <span className="block text-xs font-semibold text-slate-100">Platform Admin</span>
-                <span className="block text-[11px] text-slate-400 mt-1">admin@cynera.io</span>
-                <span className="block text-[11px] text-cyan-300 mt-1">Sign in instantly (development)</span>
-              </button>
-              <button type="button" disabled={loading} onClick={() => handleDemoLogin('operator@cynera.io', 'owner')} className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition">
-                <span className="block text-xs font-semibold text-slate-100">Workspace User</span>
-                <span className="block text-[11px] text-slate-400 mt-1">operator@cynera.io</span>
-                <span className="block text-[11px] text-cyan-300 mt-1">Click to fill credentials</span>
-              </button>
+              {demoAccounts.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleDemoLogin(account.email, account.role === 'Super Administrator' ? 'admin' : 'owner')}
+                  className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition disabled:opacity-50"
+                >
+                  <span className="block text-xs font-semibold text-slate-100">{account.name}</span>
+                  <span className="block text-[11px] text-cyan-300 mt-1">{account.role}</span>
+                  <span className="block text-[11px] text-slate-400 mt-1">{account.email}</span>
+                  <span className="block text-[10px] text-slate-500 mt-1">{account.access}</span>
+                  <span className="block text-[10px] text-slate-500 mt-1">Password: {account.password}</span>
+                  <span className="block text-[10px] text-emerald-300 mt-2">Enter demo as {account.role}</span>
+                </button>
+              ))}
             </div>
           </div>
+        )}
+        {demoLoading && (
+          <p className="mt-4 text-center text-[10px] text-slate-500">Checking whether demo access is enabled…</p>
         )}
 
         <div className="mt-6 text-center text-xs text-slate-400">
