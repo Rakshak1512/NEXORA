@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from .. import database as db_module
 from ..models.models import (
     MonitoredWebsite, WebsiteCheckResult, Incident, Alert,
-    Notification, Tenant, utc_now
+    Notification, Tenant, Collector, utc_now
 )
 from .website_checker import execute_website_check
 from .webhook_service import dispatch_webhook_event
