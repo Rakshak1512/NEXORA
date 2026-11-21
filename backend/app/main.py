@@ -875,6 +875,14 @@ def seed_demo_workspace_data():
 async def lifespan(app: FastAPI):
     seed_database_if_empty()
     seed_demo_workspace_data()
+    try:
+        from .services.demo_seeder import seed_demo_accounts_and_data
+        active_session = getattr(db_module, 'SessionLocal', SessionLocal)
+        if active_session:
+            with active_session() as s:
+                seed_demo_accounts_and_data(s)
+    except Exception as e:
+        print(f"[Lifespan] Demo seeder warning: {e}")
     website_scheduler.start()
     yield
     website_scheduler.stop()

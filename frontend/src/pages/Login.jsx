@@ -11,37 +11,21 @@ const Login = () => {
   const [accountType, setAccountType] = useState('owner');
   const [require2fa, setRequire2fa] = useState(false);
   const [error, setError] = useState('');
+  const [autoFillMsg, setAutoFillMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [demoAccounts, setDemoAccounts] = useState([
-    { email: 'admin@cynera.io', name: 'Alex Vance', role: 'Super Administrator', access: 'Platform-wide administration', password: 'Cynera2026!Secure' },
-    { email: 'owner@cynera.io', name: 'Morgan Lee', role: 'Organization Owner', access: 'Workspace access and organization management', password: 'Cynera2026!Secure' }
-  ]);
-  const [demoAvailable, setDemoAvailable] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(true);
-  const { login, demoLogin, logout } = useAuth();
+  const { login, logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let active = true;
-    api.get('/auth/demo-accounts')
-      .then((res) => { if (active && Array.isArray(res.data) && res.data.length) { setDemoAccounts(res.data.filter((account) => ['admin@cynera.io', 'owner@cynera.io'].includes(account.email))); setDemoAvailable(true); } })
-      .catch(() => { if (active) setDemoAvailable(false); })
-      .finally(() => { if (active) setDemoLoading(false); });
-    return () => { active = false; };
-  }, []);
-
-  const handleDemoLogin = async (demoEmail, type) => {
-    setError('');
-    setLoading(true);
+  const handleFillCredentials = (fillEmail, fillPassword, type) => {
+    setEmail(fillEmail);
+    setPassword(fillPassword);
     setAccountType(type);
-    try {
-      await demoLogin(demoEmail);
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.response?.data?.detail || (err.request ? 'Cannot reach the backend. Start FastAPI at http://127.0.0.1:8000 and restart the Vite frontend.' : err.message) || 'Unable to open demo account.');
-    } finally {
-      setLoading(false);
-    }
+    setRequire2fa(false);
+    setError('');
+    setAutoFillMsg('Demo credentials filled successfully.');
+    setTimeout(() => {
+      setAutoFillMsg('');
+    }, 4000);
   };
 
   const handleSubmit = async (e) => {
@@ -84,9 +68,16 @@ const Login = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-rose-400 text-xs">
+          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2 text-rose-400 text-xs">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {autoFillMsg && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-emerald-400 text-xs animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{autoFillMsg}</span>
           </div>
         )}
 
@@ -167,42 +158,52 @@ const Login = () => {
           </Button>
         </form>
 
-        {demoAccounts.length > 0 && (
-          <div className="mt-5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">CYNERA demo workspace accounts</p>
-              <span className="text-[10px] text-amber-300">Synthetic demo data</span>
-            </div>
-            <p className="text-[11px] text-slate-400 mb-3">Choose a role to enter with the correct permissions. Demo data is shared and may be changed by other demo users.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {demoAccounts.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  disabled={loading || !demoAvailable}
-                  onClick={() => handleDemoLogin(account.email, account.role === 'Super Administrator' ? 'admin' : 'owner')}
-                  className="rounded-lg border border-[#1A2740] bg-[#0B1322] p-3 text-left hover:border-cyan-400 transition disabled:opacity-50"
-                  title={demoAvailable ? 'Enter this demo persona' : 'Enable DEMO_MODE on the backend to use demo login'}
-                >
-                  <span className="block text-xs font-semibold text-slate-100">{account.name}</span>
-                  <span className="block text-[11px] text-cyan-300 mt-1">{account.role}</span>
-                  <span className="block text-[11px] text-slate-400 mt-1">{account.email}</span>
-                  <span className="block text-[10px] text-slate-500 mt-1">{account.access}</span>
-                  <span className="block text-[10px] text-slate-500 mt-1">Password: {account.password}</span>
-                  <span className="block text-[10px] text-emerald-300 mt-2">Enter demo as {account.role}</span>
-                </button>
-              ))}
-            </div>
+        <div className="mt-6 rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">Demo Accounts</p>
+            <span className="text-[10px] text-amber-300">Click to fill</span>
           </div>
-        )}
-        {demoLoading && (
-          <p className="mt-4 text-center text-[10px] text-slate-500">Checking demo access…</p>
-        )}
-        {!demoLoading && !demoAvailable && (
-          <div role="status" className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
-            Demo accounts are displayed, but demo login is currently disabled or the backend is unreachable. Set <strong>DEMO_MODE=true</strong> on the backend and restart/redeploy it. Use this only with a disposable demo database.
+          <p className="text-[11px] text-slate-400 mb-3">Select a demo persona to automatically fill credentials, then click <strong>Sign In</strong>.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Platform Admin Card */}
+            <button
+              type="button"
+              onClick={() => handleFillCredentials('admin@cynera.io', 'Cynera2026!Secure', 'admin')}
+              className={`rounded-lg border p-3 text-left transition ${
+                email === 'admin@cynera.io' ? 'border-cyan-400 bg-cyan-900/30 ring-1 ring-cyan-400' : 'border-[#1A2740] bg-[#0B1322] hover:border-cyan-500/60'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-100">Platform Admin</span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300">Super Admin</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 mt-1 font-mono">admin@cynera.io</span>
+              <span className="block text-[10px] text-slate-500 mt-0.5">Platform-wide administration</span>
+              <span className="block text-[10px] text-cyan-400 hover:text-cyan-300 font-medium mt-2">
+                Auto-fill credentials &rarr;
+              </span>
+            </button>
+
+            {/* Workspace Account Card */}
+            <button
+              type="button"
+              onClick={() => handleFillCredentials('owner@cynera.io', 'Cynera2026!Secure', 'owner')}
+              className={`rounded-lg border p-3 text-left transition ${
+                email === 'owner@cynera.io' ? 'border-cyan-400 bg-cyan-900/30 ring-1 ring-cyan-400' : 'border-[#1A2740] bg-[#0B1322] hover:border-cyan-500/60'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-100">Workspace Account</span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300">Org Owner</span>
+              </div>
+              <span className="block text-[11px] text-slate-400 mt-1 font-mono">owner@cynera.io</span>
+              <span className="block text-[10px] text-slate-500 mt-0.5">Workspace & telemetry access</span>
+              <span className="block text-[10px] text-cyan-400 hover:text-cyan-300 font-medium mt-2">
+                Auto-fill credentials &rarr;
+              </span>
+            </button>
           </div>
-        )}
+        </div>
 
         <div className="mt-6 text-center text-xs text-slate-400">
           Need a workspace for your company?{' '}

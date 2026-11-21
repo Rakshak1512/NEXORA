@@ -402,8 +402,14 @@ def login_user(data: UserLogin, db: Session = Depends(get_db)):
     if not user.is_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email verification is required before login.")
 
-    # Platform administrators always require email OTP; other users may enable it.
-    if user.role == "Super Administrator" or user.two_factor_enabled or data.require_2fa:
+    # Two-factor authentication is required when enabled on the profile, requested by the user,
+    # or for non-demo Super Administrators.
+    requires_2fa = (
+        user.two_factor_enabled
+        or data.require_2fa
+        or (user.role == "Super Administrator" and clean_email != "admin@cynera.io")
+    )
+    if requires_2fa:
         challenge, otp_code = create_otp_challenge(db, clean_email, "login")
         send_login_2fa_otp(clean_email, user.full_name, otp_code)
         return {
