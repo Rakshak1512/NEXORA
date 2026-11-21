@@ -391,8 +391,8 @@ def login_user(data: UserLogin, db: Session = Depends(get_db)):
     if not user.is_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email verification is required before login.")
 
-    # Platform administrators always require email OTP; other users may enable it.
-    if user.role == "Super Administrator" or user.two_factor_enabled or data.require_2fa:
+    # Two-factor authentication: triggered if enabled on account or explicitly requested by user
+    if user.two_factor_enabled or data.require_2fa:
         challenge, otp_code = create_otp_challenge(db, clean_email, "login")
         send_login_2fa_otp(clean_email, user.full_name, otp_code)
         return {

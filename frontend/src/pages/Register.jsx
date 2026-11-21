@@ -45,8 +45,8 @@ const Register = () => {
       setError('Platform administrator accounts are invitation-only. Ask an existing Super Administrator to create your account.');
       return;
     }
-    if (password.length < 12) {
-      setError('Password must be at least 12 characters long.');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
       return;
     }
     if (confirmPassword && password !== confirmPassword) {

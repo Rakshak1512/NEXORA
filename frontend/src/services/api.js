@@ -1,13 +1,18 @@
 import axios from 'axios';
 
 // Dedicated API Client for CYNERA SaaS Central Platform
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const configuredUrl = import.meta.env.VITE_API_URL;
+export const API_BASE_URL = configuredUrl || 'http://127.0.0.1:8000';
+
+// In local development, use relative '/api' so Vite dev server proxy seamlessly handles requests without CORS
+const isDev = import.meta.env.DEV;
+const effectiveBaseURL = (isDev && (!configuredUrl || configuredUrl.includes('localhost') || configuredUrl.includes('127.0.0.1')))
+  ? '/api'
+  : (configuredUrl ? `${configuredUrl.replace(/\/$/, '')}/api` : '/api');
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL 
-    ? `${import.meta.env.VITE_API_URL}/api`
-    : '/api',
-  timeout: 10000,
+  baseURL: effectiveBaseURL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
   }
