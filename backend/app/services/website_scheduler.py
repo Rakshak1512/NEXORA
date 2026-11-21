@@ -163,11 +163,14 @@ class WebsiteMonitoringScheduler:
                     Incident.status.in_(["OPEN", "INVESTIGATING", "ACKNOWLEDGED"])
                 ).first() if tenant_id else None
 
+                col = db.query(Collector).filter(Collector.tenant_id == tenant_id).first() if tenant_id else None
+                collector_id = col.id if col else "col-prod-core-01"
+
                 if not open_inc and tenant_id:
                     new_incident = Incident(
                         incident_number=inc_num,
                         tenant_id=tenant_id,
-                        collector_id="saas-synthetic-probe",
+                        collector_id=collector_id,
                         title=f"Website Outage: {site.name} is {new_status}",
                         description=f"Automated probe confirmed failure for {site.url}. Reason: {result.get('error_message') or 'Probe unreachable'}.",
                         severity="CRITICAL",
