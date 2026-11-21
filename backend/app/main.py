@@ -539,10 +539,6 @@ def seed_demo_workspace_data():
 
         personas = [
             ("owner@cynera.io", "Morgan Lee", "Organization Owner"),
-            ("workspace-admin@cynera.io", "Jordan Patel", "Admin"),
-            ("security@cynera.io", "Taylor Brooks", "Security Analyst"),
-            ("infra@cynera.io", "Casey Morgan", "Infrastructure Engineer"),
-            ("viewer@cynera.io", "Riley Kim", "Viewer"),
         ]
         for email, full_name, role in personas:
             user = db.query(Profile).filter(Profile.email == email).first()
@@ -683,11 +679,6 @@ def seed_demo_workspace_data():
         all_demo_personas = [
             ("admin@cynera.io", "Alex Vance", "Super Administrator"),
             ("owner@cynera.io", "Morgan Lee", "Organization Owner"),
-            ("workspace-admin@cynera.io", "Jordan Patel", "Admin"),
-            ("security@cynera.io", "Taylor Brooks", "Security Analyst"),
-            ("infra@cynera.io", "Casey Morgan", "Infrastructure Engineer"),
-            ("operator@cynera.io", "Sarah Chen", "Operator"),
-            ("viewer@cynera.io", "Riley Kim", "Viewer"),
         ]
         for email, full_name, role in all_demo_personas:
             user = db.query(Profile).filter(Profile.email == email).first()
@@ -712,6 +703,15 @@ def seed_demo_workspace_data():
                 db.add(OrganizationMembership(
                     organization_id=org.id, user_id=user.id, role=role, is_active=True
                 ))
+
+        # Retire legacy demo personas so only the two requested accounts remain usable.
+        retired_demo_emails = [
+            "workspace-admin@cynera.io", "security@cynera.io",
+            "infra@cynera.io", "operator@cynera.io", "viewer@cynera.io"
+        ]
+        db.query(Profile).filter(Profile.email.in_(retired_demo_emails)).update(
+            {Profile.is_active: False}, synchronize_session=False
+        )
 
         db.flush()
 
@@ -842,6 +842,27 @@ def seed_demo_workspace_data():
                 ))
 
         db.commit()
+        # Populate both healthy and degraded telemetry history for dashboard charts.
+        if db.query(InfrastructureMetric).filter(InfrastructureMetric.payload_id.like("demo-series-%")).count() == 0:
+            for i in range(20):
+                healthy = i < 12
+                payload_id = f"demo-series-{i:03d}"
+                stamp = now - datetime.timedelta(minutes=(20 - i) * 3)
+                db.add(InfrastructureMetric(
+                    payload_id=payload_id, collector_id=c1.id, tenant_id=tenant.id,
+                    cpu_utilization_pct=42.0 + i * 0.8 if healthy else 88.0 + (i % 4) * 2.0,
+                    memory_utilization_pct=54.0 + i * 0.5 if healthy else 86.0 + (i % 5) * 2.0,
+                    disk_utilization_pct=61.0 if healthy else 91.0 + (i % 3) * 2.0,
+                    health_state="EXCELLENT" if i < 8 else "GOOD" if healthy else "POOR",
+                    recorded_at=stamp
+                ))
+                db.add(NetworkMetric(
+                    payload_id=payload_id, collector_id=c1.id, tenant_id=tenant.id,
+                    latency_ms=18.0 + i * 1.2 if healthy else 180.0 + i * 35.0,
+                    packet_loss_pct=0.0 if healthy else 2.5 + (i % 4) * 1.2,
+                    recorded_at=stamp
+                ))
+
         db.commit()
     except Exception:
         db.rollback()
