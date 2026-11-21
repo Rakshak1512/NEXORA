@@ -37,7 +37,7 @@ const WebsiteMonitoringView = () => {
 
   // Ownership Verify Modal
   const [verifySite, setVerifySite] = useState(null);
-  const [verifyMethod, setVerifyMethod] = useState('instant');
+  const [verifyMethod, setVerifyMethod] = useState('dns_txt');
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyResult, setVerifyResult] = useState(null);
 
@@ -677,9 +677,9 @@ const WebsiteMonitoringView = () => {
                   onChange={(e) => setVerifyMethod(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-[#0B1322] border border-[#1A2740] text-xs text-slate-100 focus:outline-none focus:border-cyan-400"
                 >
-                  <option value="instant">Instant Development Verification (Auto-Approved)</option>
                   <option value="dns_txt">DNS TXT Record</option>
                   <option value="http_file">HTTP Well-Known File</option>
+                  <option value="meta_tag">HTML Verification Meta Tag</option>
                 </select>
               </div>
 
@@ -689,6 +689,13 @@ const WebsiteMonitoringView = () => {
                   <p className="text-xs font-mono text-cyan-300 select-all break-all">
                     cynera-site-verification={verifySite.verification_token}
                   </p>
+                </div>
+              )}
+
+              {verifyMethod === 'meta_tag' && (
+                <div className="p-3 rounded-xl bg-[#070C14] border border-[#1A2740] space-y-1">
+                  <span className="text-[10px] text-slate-500 font-mono">Add this tag inside the website's HTML head:</span>
+                  <p className="text-xs font-mono text-cyan-300 select-all break-all">&lt;meta name=\"cynera-verification\" content=\"{verifySite.verification_token}\" /&gt;</p>
                 </div>
               )}
 
