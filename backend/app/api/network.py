@@ -548,7 +548,7 @@ def trigger_immediate_device_check(
                 "open_ports": probe["open_ports"],
                 "closed_ports": probe["closed_ports"]
             }
-        }))
+        }, tenant_id=current_user.tenant_id))
     except Exception:
         pass
 
