@@ -19,7 +19,7 @@ const AlertCenterView = () => {
   const fetchAlerts = async () => {
     try {
       const [alertsRes, sumRes] = await Promise.all([
-        api.get(`/alerts?status=${statusFilter}${severityFilter !== 'ALL' ? `&severity=${severityFilter}` : ''}`),
+        api.get(`/alerts?alert_status=${statusFilter}${severityFilter !== 'ALL' ? `&severity=${severityFilter}` : ''}`),
         api.get('/alerts/summary')
       ]);
       setAlerts(alertsRes.data);
@@ -211,7 +211,7 @@ const AlertCenterView = () => {
                     {alt.severity}
                   </span>
                   <span className="text-xs font-mono text-slate-400 px-1.5 py-0.5 rounded bg-[#070C14] border border-[#1A2740]">
-                    {alt.source}
+                    {alt.source || alt.category || 'SYSTEM'}
                   </span>
                   <h3 className="text-sm font-bold text-slate-100">{alt.title}</h3>
                 </div>
