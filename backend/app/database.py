@@ -60,19 +60,19 @@ if raw_db_url:
                 "for Vercel serverless execution."
             )
         else:
-            # Keep local/stationary deployments deliberately small as well.
+            # Maintain a healthy local connection pool capable of concurrent queries.
             engine = create_engine(
                 database_url,
-                pool_size=2,
-                max_overflow=0,
-                pool_timeout=30,
+                pool_size=10,
+                max_overflow=20,
+                pool_timeout=15,
                 pool_recycle=1800,
                 pool_pre_ping=True,
                 connect_args=connect_args,
             )
             logger.info(
-                "[Database] Supabase PostgreSQL configured with a bounded "
-                "local connection pool (2 connections, no overflow)."
+                "[Database] Supabase PostgreSQL configured with resilient "
+                "connection pool (10 base connections, up to 20 overflow)."
             )
     elif "sqlite" in raw_db_url:
         engine = create_engine(raw_db_url, connect_args={"check_same_thread": False})

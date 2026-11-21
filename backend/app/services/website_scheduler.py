@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import datetime
+import secrets
 from typing import Optional
 from sqlalchemy.orm import Session
 from .. import database as db_module
@@ -148,7 +149,7 @@ class WebsiteMonitoringScheduler:
 
             # 4. Handle OUTAGE Incident & Alert Creation
             if is_now_down and (not was_down or site.consecutive_failures >= 2):
-                inc_num = f"INC-WEB-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+                inc_num = f"INC-WEB-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}-{secrets.token_hex(2).upper()}"
                 
                 # Resolve active tenant for the website's organization
                 tenant = db.query(Tenant).filter(Tenant.organization_id == site.organization_id).first()
@@ -207,7 +208,7 @@ class WebsiteMonitoringScheduler:
 
                     # Trigger Webhook
                     asyncio.create_task(dispatch_webhook_event(
-                        db, site.organization_id, "website.down", {
+                        None, site.organization_id, "website.down", {
                             "website_id": site.id,
                             "website_name": site.name,
                             "url": site.url,
@@ -219,11 +220,16 @@ class WebsiteMonitoringScheduler:
             # 5. Handle RECOVERY
             elif was_down and not is_now_down:
                 # Resolve incident
+                rec_tenant = db.query(Tenant).filter(Tenant.organization_id == site.organization_id).first()
+                if not rec_tenant:
+                    rec_tenant = db.query(Tenant).first()
+                rec_tenant_id = rec_tenant.id if rec_tenant else None
+
                 open_incs = db.query(Incident).filter(
-                    Incident.tenant_id == site.organization_id,
+                    Incident.tenant_id == rec_tenant_id,
                     Incident.title.like(f"%{site.name}%"),
                     Incident.status.in_(["OPEN", "INVESTIGATING", "ACKNOWLEDGED"])
-                ).all()
+                ).all() if rec_tenant_id else []
 
                 for inc in open_incs:
                     inc.status = "RESOLVED"
@@ -248,7 +254,7 @@ class WebsiteMonitoringScheduler:
 
                 # Trigger Webhook
                 asyncio.create_task(dispatch_webhook_event(
-                    db, site.organization_id, "website.recovered", {
+                    None, site.organization_id, "website.recovered", {
                         "website_id": site.id,
                         "website_name": site.name,
                         "url": site.url,
