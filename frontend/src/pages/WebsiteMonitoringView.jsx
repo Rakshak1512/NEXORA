@@ -104,9 +104,42 @@ const WebsiteMonitoringView = () => {
   const handleCreateWebsite = async (e) => {
     e.preventDefault();
     setAddError('');
+
+    const targetName = addForm.name.trim();
+    const rawUrl = addForm.url.trim();
+    if (!targetName) {
+      setAddError('Enter a friendly name for this monitoring target.');
+      return;
+    }
+    if (!rawUrl) {
+      setAddError('Enter a public website URL, hostname, or public IP address.');
+      return;
+    }
+
+    // The backend performs authoritative SSRF/DNS validation. Here we only
+    // normalise common input forms so users can enter a hostname or public IP.
+    let normalisedUrl = rawUrl;
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalisedUrl)) {
+      if (normalisedUrl.includes(':') && !normalisedUrl.startsWith('[')) {
+        const ipv6Candidate = normalisedUrl.replace(/^\[|\]$/g, '');
+        if (ipv6Candidate.split(':').length > 2 && /^[0-9a-f:.]+$/i.test(ipv6Candidate)) {
+          normalisedUrl = `https://[${ipv6Candidate}]`;
+        } else {
+          normalisedUrl = `https://${normalisedUrl}`;
+        }
+      } else {
+        normalisedUrl = `https://${normalisedUrl}`;
+      }
+    }
+
     setAddLoading(true);
     try {
-      await api.post('/websites', addForm);
+      const payload = {
+        ...addForm,
+        name: targetName,
+        url: normalisedUrl
+      };
+      await api.post('/websites', payload);
       setShowAddModal(false);
       setAddForm({
         name: '',
@@ -119,9 +152,22 @@ const WebsiteMonitoringView = () => {
         check_ssl: true,
         ssl_expiry_warning_days: 30
       });
-      fetchWebsites();
+      await fetchWebsites();
+      setActionFeedback({
+        type: 'success',
+        message: 'Website added. Verify domain ownership to enable monitoring.'
+      });
     } catch (err) {
-      setAddError(err.response?.data?.detail || 'Failed to add website. Ensure URL is public and valid.');
+      const serverDetail = err.response?.data?.detail;
+      if (Array.isArray(serverDetail)) {
+        setAddError(serverDetail.map(item => item.msg || String(item)).join(' '));
+      } else if (typeof serverDetail === 'string' && serverDetail.trim()) {
+        setAddError(serverDetail);
+      } else if (!err.response) {
+        setAddError('Cannot reach the CYNERA backend. Check your connection and try again.');
+      } else {
+        setAddError(`Website could not be added (HTTP ${err.response.status}). Check the backend logs for details.`);
+      }
     } finally {
       setAddLoading(false);
     }
@@ -503,15 +549,16 @@ const WebsiteMonitoringView = () => {
                   Target Public URL <span className="text-rose-400">*</span>
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   required
+                  autoComplete="url"
                   value={addForm.url}
                   onChange={(e) => setAddForm({ ...addForm, url: e.target.value })}
-                  placeholder="https://acmecorp.com"
+                  placeholder="https://example.com, example.com, or a public IP"
                   className="w-full px-3.5 py-2 rounded-xl bg-[#0B1322] border border-[#1A2740] text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400"
                 />
                 <span className="text-[10px] text-slate-500 mt-1 block">
-                  Must be a publicly accessible URL (SSRF guard blocks localhost and private IP ranges).
+                  Enter a public domain or public IP. HTTPS is added automatically when omitted; localhost and private IP ranges stay blocked.
                 </span>
               </div>
 
