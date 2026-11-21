@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowRight, ArrowLeft, AlertCircle, Shield, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import api from '../services/api';
@@ -62,11 +62,12 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070C14] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#070C14] flex items-center justify-center p-4 relative overflow-hidden auth-scene">
       {/* Background Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="glass-panel w-full max-w-md p-8 md:p-10 rounded-2xl border border-[#1A2740] shadow-2xl relative z-10">
+      <div className="glass-panel w-full max-w-md p-8 md:p-10 rounded-2xl border border-[#1A2740] shadow-2xl relative z-10 auth-card">
+        <Link to="/" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-cyan-300 transition mb-5"><ArrowLeft className="w-4 h-4" /> Back to landing page</Link>
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-teal-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
