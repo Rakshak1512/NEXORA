@@ -1,46 +1,63 @@
 import json
-from typing import List, Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import WebSocket
 
-class WebSocketManager:
-    """
-    WEBSOCKET MANAGER
-    Broadcasts real-time metrics, health states, active alerts, incidents,
-    and egress verification events to all connected operator dashboards.
-    """
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
+class WebSocketManager:
+    """Tenant- and organization-scoped real-time event broadcaster."""
+
+    def __init__(self):
+        self.active_connections: Dict[WebSocket, Dict[str, Optional[str]]] = {}
+
+    async def register(self, websocket: WebSocket, tenant_id: str, organization_id: Optional[str] = None):
+        self.active_connections[websocket] = {
+            "tenant_id": str(tenant_id),
+            "organization_id": str(organization_id) if organization_id else None,
+        }
 
     def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+        self.active_connections.pop(websocket, None)
 
-    async def broadcast(self, message_type: str, data: Any):
-        payload = json.dumps({"type": message_type, "data": data})
+    def _matching_connections(self, tenant_id=None, organization_id=None):
+        if tenant_id is None and organization_id is None:
+            return []
+        targets = []
+        for connection, scope in list(self.active_connections.items()):
+            matches = True
+            if tenant_id is not None:
+                matches = matches and scope["tenant_id"] == str(tenant_id)
+            if organization_id is not None:
+                matches = matches and scope["organization_id"] == str(organization_id)
+            if matches:
+                targets.append(connection)
+        return targets
+
+    async def _send(self, payload: str, tenant_id=None, organization_id=None):
         disconnected = []
-        for connection in self.active_connections:
+        for connection in self._matching_connections(tenant_id, organization_id):
             try:
                 await connection.send_text(payload)
             except Exception:
                 disconnected.append(connection)
+        for connection in disconnected:
+            self.disconnect(connection)
 
-        for dead_conn in disconnected:
-            self.disconnect(dead_conn)
+    async def broadcast(self, message_type, data=None, tenant_id=None, organization_id=None):
+        if isinstance(message_type, dict) and data is None:
+            event = message_type
+            event_data = event.get("data")
+            if not isinstance(event_data, dict):
+                event_data = {}
+            tenant_id = tenant_id or event.get("tenant_id") or event_data.get("tenant_id")
+            organization_id = organization_id or event.get("organization_id") or event_data.get("organization_id")
+        else:
+            event = {"type": message_type, "data": data}
+        await self._send(json.dumps(event), tenant_id, organization_id)
 
-    async def broadcast_json(self, data: Dict[str, Any]):
-        payload = json.dumps(data)
-        disconnected = []
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(payload)
-            except Exception:
-                disconnected.append(connection)
-        for dead_conn in disconnected:
-            self.disconnect(dead_conn)
+    async def broadcast_json(self, data: Dict[str, Any], tenant_id=None, organization_id=None):
+        tenant_id = tenant_id or data.get("tenant_id")
+        organization_id = organization_id or data.get("organization_id")
+        await self._send(json.dumps(data), tenant_id, organization_id)
+
 
 ws_manager = WebSocketManager()
-

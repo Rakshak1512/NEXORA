@@ -319,7 +319,7 @@ class TelemetryService:
             "new_incident": new_incident_data,
             "timestamp": now_dt.isoformat()
         }
-        await ws_manager.broadcast("TELEMETRY_UPDATE", broadcast_data)
+        await ws_manager.broadcast("TELEMETRY_UPDATE", broadcast_data, tenant_id=payload.tenant_id)
 
         return True, "Telemetry processed and correlated successfully.", {
             "payload_id": payload.payload_id,

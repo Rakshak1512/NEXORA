@@ -1,12 +1,13 @@
 import os
 import json
 import datetime
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from . import database as db_module
-from .database import engine, Base, SessionLocal
+from .database import engine, Base, SessionLocal, test_database_connection
 from .models.models import (
     Organization, Tenant, Profile, Collector, Incident,
     IncidentAlert, AIRecommendation, RemediationApproval, PerformanceBenchmark, EgressMetadata,
@@ -16,7 +17,7 @@ from .models.models import (
     NetworkDevice, NetworkCheckResult, OrganizationMembership,
     APIKey, EmbedWidgetToken, Notification
 )
-from .auth.jwt import get_password_hash
+from .auth.jwt import get_password_hash, decode_access_token
 from .websocket.manager import ws_manager
 
 # API Routers
@@ -50,10 +51,9 @@ from .models.models import (
 )
 
 def seed_database_if_empty():
-    """Seeds demo fixtures only in explicit development/test environments."""
-    runtime_env = (settings.APP_ENV or settings.ENVIRONMENT or "production").strip().lower()
-    if not settings.DEMO_MODE and runtime_env not in {"development", "dev", "test", "testing"}:
-        print("[Database] Demo seeding disabled outside development/test environments.")
+    """Seed synthetic fixtures only after an explicit DEMO_MODE opt-in."""
+    if not settings.DEMO_MODE:
+        print("[Database] Demo seeding disabled; set DEMO_MODE=true only on a disposable demo database.")
         return
     active_engine = getattr(db_module, 'engine', engine)
     active_session = getattr(db_module, 'SessionLocal', SessionLocal)
@@ -873,6 +873,9 @@ def seed_demo_workspace_data():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not settings.jwt_secret:
+        raise RuntimeError("JWT_SECRET_KEY must be configured before starting CYNERA.")
+
     # Vercel runs this FastAPI app as short-lived serverless functions.
     # Do not launch process-lifetime schedulers or run schema/demo seeding in
     # every serverless instance; both create unnecessary concurrent DB traffic.
@@ -926,9 +929,21 @@ def root_health():
 @app.get("/health", tags=["Health"])
 @app.get("/api/health", tags=["Health"])
 def api_health():
+    database = test_database_connection()
+    if not database.get("connected"):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "service": "CYNERA API",
+                "status": "degraded",
+                "database": database.get("status", "unavailable"),
+                "version": app.version
+            }
+        )
     return {
         "service": "CYNERA API",
         "status": "healthy",
+        "database": "connected",
         "version": app.version
     }
 
@@ -999,15 +1014,58 @@ app.include_router(databases_router, prefix="/api")
 app.include_router(alerts_router, prefix="/api")
 app.include_router(webhooks_router, prefix="/api")
 
-# WebSocket Endpoint
+# WebSocket Endpoint. The first client message must authenticate the connection.
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await ws_manager.connect(websocket)
+    await websocket.accept()
+    db = None
+    registered = False
     try:
+        try:
+            auth_message = await asyncio.wait_for(websocket.receive_json(), timeout=8)
+        except Exception:
+            await websocket.close(code=4401, reason="Authentication required")
+            return
+
+        token = auth_message.get("token") if isinstance(auth_message, dict) and auth_message.get("type") == "AUTH" else None
+        claims = decode_access_token(token) if isinstance(token, str) and token else None
+        subject = claims.get("sub") if claims else None
+        if not subject or not SessionLocal:
+            await websocket.close(code=4401, reason="Invalid or expired session")
+            return
+
+        db = SessionLocal()
+        current_user = db.query(Profile).filter(Profile.id == str(subject)).first()
+        if (
+            not current_user
+            or not current_user.is_active
+            or not current_user.is_verified
+            or not current_user.tenant_id
+        ):
+            await websocket.close(code=4403, reason="Active tenant membership required")
+            return
+
+        await ws_manager.register(
+            websocket,
+            tenant_id=current_user.tenant_id,
+            organization_id=current_user.organization_id
+        )
+        registered = True
+        await websocket.send_json({"type": "AUTHENTICATED"})
+
         while True:
             data = await websocket.receive_text()
-            # Echo or process client ping
             await websocket.send_text(json.dumps({"type": "PONG", "payload": data}))
     except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
+        pass
+    except Exception:
+        try:
+            await websocket.close(code=1011, reason="WebSocket session failed")
+        except Exception:
+            pass
+    finally:
+        if registered:
+            ws_manager.disconnect(websocket)
+        if db is not None:
+            db.close()
 
