@@ -10,7 +10,7 @@ export const getWebSocketUrl = () => {
   const cleanBase = (configuredUrl || fallbackUrl).replace(/\/+$/, '').replace(/\/api$/, '');
   const wsProtocol = cleanBase.startsWith('https://') ? 'wss://' : 'ws://';
   const wsHost = cleanBase.replace(/^https?:\/\//, '');
-  return \`${wsProtocol}${wsHost}/ws\`;
+  return wsProtocol + wsHost + '/ws';
 };
 
 export const WebSocketProvider = ({ children }) => {
