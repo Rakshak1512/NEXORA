@@ -2,7 +2,9 @@ import pytest
 import hmac
 import hashlib
 import json
+import socket
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 from app.main import app
 from auth_helpers import login_as_platform_admin
 from app.services.ssrf_guard import is_ip_private_or_restricted, validate_public_url
@@ -237,3 +239,78 @@ def test_webhooks_and_hmac():
     test_body = b'{"event":"ping"}'
     sig = hmac.new(secret.encode(), test_body, hashlib.sha256).hexdigest()
     assert len(sig) == 64
+
+
+def test_ssrf_guard_accepts_public_ipv4_and_ipv6_literals():
+    # Globally routable literal addresses should not need a DNS lookup.
+    safe, error, normalized, ips = validate_public_url("https://1.1.1.1/status")
+    assert safe, error
+    assert normalized == "https://1.1.1.1/status"
+    assert ips == ["1.1.1.1"]
+
+    safe, error, normalized, ips = validate_public_url("https://[2606:4700:4700::1111]/health")
+    assert safe, error
+    assert normalized == "https://[2606:4700:4700::1111]/health"
+    assert ips == ["2606:4700:4700::1111"]
+
+    # Bare public IPv6 literals are normalised into a bracketed HTTPS URL.
+    safe, error, normalized, ips = validate_public_url("2606:4700:4700::1111")
+    assert safe, error
+    assert normalized == "https://[2606:4700:4700::1111]/"
+    assert ips == ["2606:4700:4700::1111"]
+
+
+def test_ssrf_guard_rejects_non_global_ip_literals():
+    for address in (
+        "127.0.0.1",
+        "10.0.0.1",
+        "172.16.0.1",
+        "192.168.1.10",
+        "169.254.169.254",
+        "100.64.0.1",
+        "224.0.0.1",
+    ):
+        safe, _error, _normalized, _ips = validate_public_url(f"http://{address}/")
+        assert not safe, f"Expected {address} to be blocked"
+
+
+def test_ssrf_guard_accepts_public_hostname_with_dns_resolution():
+    public_dns_answer = [
+        (
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_TCP,
+            "",
+            ("76.76.21.21", 0),
+        )
+    ]
+    with patch("app.services.ssrf_guard.socket.getaddrinfo", return_value=public_dns_answer):
+        safe, error, normalized, ips = validate_public_url("lunvis-arty-crafty.vercel.app/")
+
+    assert safe, error
+    assert normalized == "https://lunvis-arty-crafty.vercel.app/"
+    assert ips == ["76.76.21.21"]
+
+
+def test_ssrf_guard_rejects_hostname_with_any_non_global_dns_answer():
+    mixed_dns_answers = [
+        (
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_TCP,
+            "",
+            ("76.76.21.21", 0),
+        ),
+        (
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+            socket.IPPROTO_TCP,
+            "",
+            ("10.0.0.8", 0),
+        ),
+    ]
+    with patch("app.services.ssrf_guard.socket.getaddrinfo", return_value=mixed_dns_answers):
+        safe, error, _normalized, _ips = validate_public_url("public-example.com")
+
+    assert not safe
+    assert "non-public IP" in error
