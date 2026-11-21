@@ -91,7 +91,20 @@ def validate_public_url(url: str) -> Tuple[bool, str, str, List[str]]:
         return False, "URL contains invalid control or escape characters.", "", []
 
     if "://" not in candidate:
-        candidate = "https://" + candidate.lstrip("/")
+        # A bare IPv6 literal contains colons; wrap it in brackets before
+        # adding the URL scheme so urlsplit does not mistake it for a port.
+        raw_host = candidate.strip()
+        if raw_host.startswith("[") and raw_host.endswith("]"):
+            raw_host = raw_host[1:-1]
+        try:
+            bare_ip = ipaddress.ip_address(raw_host)
+        except ValueError:
+            bare_ip = None
+
+        if isinstance(bare_ip, ipaddress.IPv6Address):
+            candidate = f"https://[{bare_ip.compressed}]"
+        else:
+            candidate = "https://" + candidate.lstrip("/")
 
     try:
         parsed = urllib.parse.urlsplit(candidate)
