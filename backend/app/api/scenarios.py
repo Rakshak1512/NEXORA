@@ -4,7 +4,8 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models.models import SystemAuditLog, PerformanceBenchmark, IncidentAlert, AIRecommendation
+from ..models.models import SystemAuditLog, PerformanceBenchmark, IncidentAlert, AIRecommendation, Collector, Profile
+from ..auth.deps import get_current_user, RoleChecker
 from ..schemas.schemas import ScenarioTriggerRequest
 from ..services.telemetry_service import telemetry_service
 from ..schemas.schemas import TelemetryIngestPayload
@@ -12,8 +13,10 @@ from ..schemas.schemas import TelemetryIngestPayload
 router = APIRouter(tags=["Operations & Scenarios"])
 
 @router.get("/scenarios/alerts")
-def list_scenario_alerts(db: Session = Depends(get_db)):
-    alerts = db.query(IncidentAlert).order_by(IncidentAlert.detected_at.desc()).limit(100).all()
+def list_scenario_alerts(current_user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.tenant_id:
+        return []
+    alerts = db.query(IncidentAlert).join(Collector, IncidentAlert.collector_id == Collector.id).filter(Collector.tenant_id == current_user.tenant_id).order_by(IncidentAlert.detected_at.desc()).limit(100).all()
     return [
         {
             "id": a.id,
@@ -32,9 +35,11 @@ def list_scenario_alerts(db: Session = Depends(get_db)):
     ]
 
 @router.get("/aiops/status")
-def get_aiops_status(db: Session = Depends(get_db)):
-    total_anomalies = db.query(IncidentAlert).count()
-    total_recommendations = db.query(AIRecommendation).count()
+def get_aiops_status(current_user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.tenant_id:
+        return {"status": "NO_TENANT", "total_anomalies_detected": 0, "total_recommendations_generated": 0, "average_confidence_score": None}
+    total_anomalies = db.query(IncidentAlert).join(Collector, IncidentAlert.collector_id == Collector.id).filter(Collector.tenant_id == current_user.tenant_id).count()
+    total_recommendations = db.query(AIRecommendation).filter(AIRecommendation.tenant_id == current_user.tenant_id).count()
     return {
         "status": "ACTIVE",
         "anomaly_detector": "Ensemble (Statistical Z-Score + Scikit-Learn Isolation Forest)",
@@ -42,7 +47,7 @@ def get_aiops_status(db: Session = Depends(get_db)):
         "recommendation_engine": "Deterministic Fallback + Explainable Causal Graph",
         "total_anomalies_detected": total_anomalies,
         "total_recommendations_generated": total_recommendations,
-        "average_confidence_score": 94.8
+        "average_confidence_score": None
     }
 
 @router.get("/audit/logs")
@@ -100,7 +105,7 @@ def get_benchmarks(db: Session = Depends(get_db)):
     }
 
 @router.post("/scenarios/trigger")
-async def trigger_scenario(data: ScenarioTriggerRequest, db: Session = Depends(get_db)):
+async def trigger_scenario(data: ScenarioTriggerRequest, current_user: Profile = Depends(RoleChecker(["Super Administrator", "Organization Owner", "Admin", "Organization Administrator", "Infrastructure Engineer"])), db: Session = Depends(get_db)):
     """
     SCENARIO CONTROL CENTER
     Simulates any of the 13 hackathon scenarios:
@@ -157,10 +162,16 @@ async def trigger_scenario(data: ScenarioTriggerRequest, db: Session = Depends(g
         health = "POOR"
         reason = "Cascading resource failure across compute, memory and networking."
 
+    if not current_user.tenant_id:
+        raise HTTPException(status_code=400, detail="User is not associated with a tenant.")
+    simulation_collector = db.query(Collector).filter(Collector.tenant_id == current_user.tenant_id).first()
+    if not simulation_collector:
+        raise HTTPException(status_code=400, detail="Register a collector for this tenant before running a scenario.")
+
     sim_payload = TelemetryIngestPayload(
         payload_id=payload_id,
-        collector_id="col-prod-core-01",
-        tenant_id="11111111-1111-1111-1111-111111111111",
+        collector_id=simulation_collector.id,
+        tenant_id=current_user.tenant_id,
         timestamp_utc=now_utc,
         cpu_utilization_pct=cpu,
         memory_utilization_pct=mem,

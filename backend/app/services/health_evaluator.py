@@ -1,5 +1,6 @@
 import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 from ..models.models import Collector, InfrastructureMetric
 
 def check_stale_collectors(db: Session):
@@ -13,8 +14,8 @@ def check_stale_collectors(db: Session):
     threshold = now - datetime.timedelta(seconds=60)
 
     stale_collectors = db.query(Collector).filter(
-        Collector.last_seen_at < threshold,
-        Collector.status != "offline"
+        or_(Collector.last_seen_at.is_(None), Collector.last_seen_at < threshold),
+        func.lower(Collector.status) != "offline"
     ).all()
 
     for col in stale_collectors:
