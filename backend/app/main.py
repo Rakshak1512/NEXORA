@@ -20,7 +20,6 @@ from .websocket.manager import ws_manager
 # API Routers
 from .api.auth import router as auth_router
 from .api.admin import router as admin_router
-from .api.admin import router as admin_router
 from .api.collectors import router as collectors_router
 from .api.telemetry import router as telemetry_router
 from .api.metrics import router as metrics_router
@@ -308,34 +307,29 @@ def seed_database_if_empty():
             db.commit()
             print("[Database] Seed complete. Default login: admin@cynera.io / Cynera2026!Secure (admin@cicada.io also active)")
         else:
-            # Ensure CYNERA default users exist in pre-existing DB
-            cynera_admin = db.query(Profile).filter(Profile.email == "admin@cynera.io").first()
-            if not cynera_admin:
-                org = db.query(Organization).first()
-                tenant = db.query(Tenant).first()
-                if org and tenant:
-                    pw_hash_cynera = get_password_hash("Cynera2026!Secure")
-                    u_cynera1 = Profile(
-                        id="33333333-3333-3333-3333-333333333333",
-                        email="admin@cynera.io",
-                        password_hash=pw_hash_cynera,
-                        full_name="Alex Vance",
-                        role="Super Administrator",
-                        organization_id=org.id,
-                        tenant_id=tenant.id
-                    )
-                    u_cynera2 = Profile(
-                        id="33333333-3333-3333-3333-333333333334",
-                        email="operator@cynera.io",
-                        password_hash=pw_hash_cynera,
-                        full_name="Sarah Chen",
-                        role="Operator",
-                        organization_id=org.id,
-                        tenant_id=tenant.id
-                    )
-                    db.add_all([u_cynera1, u_cynera2])
-                    db.commit()
-                    print("[Database] CYNERA credentials provisioned: admin@cynera.io / Cynera2026!Secure")
+            # Ensure each CYNERA demo account exists independently in pre-existing DBs.
+            org = db.query(Organization).first()
+            tenant = db.query(Tenant).first()
+            if org and tenant:
+                demo_accounts = (
+                    ("admin@cynera.io", "Alex Vance", "Super Administrator", "33333333-3333-3333-3333-333333333333"),
+                    ("operator@cynera.io", "Sarah Chen", "Operator", "33333333-3333-3333-3333-333333333334"),
+                )
+                for email, full_name, role, user_id in demo_accounts:
+                    existing_user = db.query(Profile).filter(Profile.email == email).first()
+                    if not existing_user:
+                        db.add(Profile(
+                            id=user_id,
+                            email=email,
+                            password_hash=get_password_hash("Cynera2026!Secure"),
+                            full_name=full_name,
+                            role=role,
+                            organization_id=org.id,
+                            tenant_id=tenant.id,
+                            is_verified=True,
+                            is_active=True
+                        ))
+                db.commit()
 
         # Seed network devices if empty
         if db.query(NetworkDevice).count() == 0:
