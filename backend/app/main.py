@@ -678,6 +678,170 @@ def seed_demo_workspace_data():
             if db.query(Notification).filter(Notification.organization_id == org.id, Notification.title == title).first() is None:
                 db.add(Notification(organization_id=org.id, title=title, message=message, type=kind))
 
+        # Ensure every published demo persona is active and verified, then provide a
+        # shared synthetic workspace with healthy, warning, critical, failed and recovered states.
+        all_demo_personas = [
+            ("admin@cynera.io", "Alex Vance", "Super Administrator"),
+            ("owner@cynera.io", "Morgan Lee", "Organization Owner"),
+            ("workspace-admin@cynera.io", "Jordan Patel", "Admin"),
+            ("security@cynera.io", "Taylor Brooks", "Security Analyst"),
+            ("infra@cynera.io", "Casey Morgan", "Infrastructure Engineer"),
+            ("operator@cynera.io", "Sarah Chen", "Operator"),
+            ("viewer@cynera.io", "Riley Kim", "Viewer"),
+        ]
+        for email, full_name, role in all_demo_personas:
+            user = db.query(Profile).filter(Profile.email == email).first()
+            if not user:
+                user = Profile(
+                    email=email, password_hash=get_password_hash("Cynera2026!Secure"),
+                    full_name=full_name, role=role, organization_id=org.id,
+                    tenant_id=tenant.id, is_verified=True, is_active=True
+                )
+                db.add(user)
+                db.flush()
+            else:
+                user.is_verified = True
+                user.is_active = True
+                user.organization_id = user.organization_id or org.id
+                user.tenant_id = user.tenant_id or tenant.id
+            membership = db.query(OrganizationMembership).filter(
+                OrganizationMembership.organization_id == org.id,
+                OrganizationMembership.user_id == user.id
+            ).first()
+            if not membership:
+                db.add(OrganizationMembership(
+                    organization_id=org.id, user_id=user.id, role=role, is_active=True
+                ))
+
+        db.flush()
+
+        # Alert Center: include all severity levels and lifecycle states across every demo login.
+        alert_fixtures = [
+            ("demo-alert-infra-warning", "DEMO: CPU utilization warning", "MEDIUM", "infrastructure", "ACTIVE", "Synthetic CPU 86%; warning threshold 80%."),
+            ("demo-alert-infra-critical", "DEMO: Memory saturation critical", "CRITICAL", "infrastructure", "ACTIVE", "Synthetic memory 96%; critical threshold 90%."),
+            ("demo-alert-disk-high", "DEMO: Disk capacity high", "HIGH", "infrastructure", "ACKNOWLEDGED", "Synthetic disk utilization 92%; operator acknowledgement example."),
+            ("demo-alert-network-down", "DEMO: Network path unreachable", "CRITICAL", "network", "ACTIVE", "Synthetic network probe failed; no real network request was made."),
+            ("demo-alert-network-recovered", "DEMO: Packet loss recovered", "LOW", "network", "RESOLVED", "Synthetic packet loss returned to 0.01%; recovery example."),
+            ("demo-alert-security-critical", "DEMO: Authentication attack pattern", "CRITICAL", "security", "ACTIVE", "Synthetic 65 failed logins/minute; no real credentials were used."),
+            ("demo-alert-app-degraded", "DEMO: Application error rate elevated", "HIGH", "application", "ACTIVE", "Synthetic application error rate 8.4%; warning and degradation example."),
+            ("demo-alert-db-critical", "DEMO: Database pool saturation", "CRITICAL", "database", "ACTIVE", "Synthetic database pool saturation 97%; no real database connection was made."),
+            ("demo-alert-website-warning", "DEMO: Website TLS certificate expiring", "MEDIUM", "website", "ACKNOWLEDGED", "Synthetic certificate expiry in 9 days."),
+            ("demo-alert-website-failed", "DEMO: Website DNS resolution failure", "HIGH", "website", "ACTIVE", "Synthetic DNS failure example; no public DNS query was issued."),
+        ]
+        for alert_id, title, severity, category, state, evidence in alert_fixtures:
+            if not db.query(Alert).filter(Alert.id == alert_id).first():
+                db.add(Alert(
+                    id=alert_id, organization_id=org.id, title=title, severity=severity,
+                    category=category, resource_name="DEMO synthetic resource",
+                    resource_id=alert_id, evidence=evidence, status=state,
+                    resolved_at=now if state == "RESOLVED" else None
+                ))
+
+        # Website monitoring: healthy, slow, down, timeout, DNS and TLS failure examples.
+        website_fixtures = [
+            ("demo-web-healthy", "DEMO - Healthy status portal", "ONLINE", 200, 72.0, 99.99, "VALID", 180, "HEALTHY", 18.0),
+            ("demo-web-slow", "DEMO - Slow response portal", "DEGRADED", 200, 1850.0, 97.40, "WARNING", 9, "DEGRADED", 145.0),
+            ("demo-web-down", "DEMO - Unavailable payment portal", "DOWN", 503, 5000.0, 91.20, "VALID", 45, "HEALTHY", 20.0),
+            ("demo-web-timeout", "DEMO - Timeout portal", "TIMEOUT", None, 10000.0, 94.00, "VALID", 35, "HEALTHY", 22.0),
+            ("demo-web-dns", "DEMO - DNS failure portal", "DNS_FAILURE", None, 0.0, 88.00, "UNKNOWN", None, "FAILED", 0.0),
+            ("demo-web-tls", "DEMO - Expired TLS portal", "TLS_FAILURE", 200, 220.0, 96.00, "EXPIRED", 0, "HEALTHY", 19.0),
+        ]
+        for wid, name, state, code, latency, uptime, ssl, days, dns, dns_ms in website_fixtures:
+            website = db.query(MonitoredWebsite).filter(MonitoredWebsite.id == wid).first()
+            if not website:
+                website = MonitoredWebsite(
+                    id=wid, organization_id=org.id, name=name,
+                    url=f"https://{wid}.demo.invalid", status=state, is_active=True,
+                    is_verified=True, verification_method="manual",
+                    monitoring_interval_seconds=60, timeout_seconds=10,
+                    expected_status_codes="[200, 201, 301, 302]",
+                    last_checked_at=now, last_status_code=code,
+                    last_response_time_ms=latency, uptime_percentage_24h=uptime,
+                    ssl_status=ssl, ssl_days_remaining=days, dns_status=dns,
+                    dns_lookup_time_ms=dns_ms, dns_resolved_ips="[]"
+                )
+                db.add(website)
+                db.flush()
+            result_id = f"{wid}-check"
+            if not db.query(WebsiteCheckResult).filter(WebsiteCheckResult.id == result_id).first():
+                db.add(WebsiteCheckResult(
+                    id=result_id, website_id=website.id, organization_id=org.id,
+                    status=state, status_code=code, response_time_ms=latency,
+                    dns_lookup_time_ms=dns_ms, ssl_valid=(ssl == "VALID"),
+                    ssl_days_remaining=days,
+                    error_message=None if state == "ONLINE" else f"DEMO synthetic {state} condition",
+                    check_location="CYNERA Demo Lab", recorded_at=now
+                ))
+
+        # APM: healthy, degraded and critical services plus warning/error events.
+        apm_fixtures = [
+            ("demo-apm-healthy", "DEMO - Healthy authentication API", "HEALTHY", 0.12, 42.0, 24000),
+            ("demo-apm-degraded", "DEMO - Slow checkout API", "DEGRADED", 4.8, 680.0, 18200),
+            ("demo-apm-critical", "DEMO - Failing payment worker", "CRITICAL", 18.6, 2400.0, 9200),
+        ]
+        for sid, name, state, errors, latency, requests in apm_fixtures:
+            service = db.query(ApplicationService).filter(ApplicationService.id == sid).first()
+            if not service:
+                service = ApplicationService(
+                    id=sid, organization_id=org.id, name=name, language="Python",
+                    environment="demo", version="2.4.0", status=state,
+                    error_rate_pct=errors, avg_latency_ms=latency,
+                    request_count_24h=requests, last_heartbeat_at=now
+                )
+                db.add(service)
+                db.flush()
+            event_id = f"{sid}-event"
+            if state != "HEALTHY" and not db.query(ApplicationEvent).filter(ApplicationEvent.id == event_id).first():
+                db.add(ApplicationEvent(
+                    id=event_id, service_id=service.id, organization_id=org.id,
+                    event_type="warning" if state == "DEGRADED" else "exception",
+                    name="DEMO synthetic application event",
+                    message=f"Synthetic {state.lower()} service case; no real customer request was processed.",
+                    endpoint="/api/demo/checkout", duration_ms=latency,
+                    status_code=200 if state == "DEGRADED" else 503, recorded_at=now
+                ))
+
+        # Database monitoring: healthy, warning/saturation and unavailable integration states.
+        db_fixtures = [
+            ("demo-db-healthy", "DEMO - Healthy PostgreSQL", "HEALTHY", 18, 100, 18.0, 8.4, 2),
+            ("demo-db-warning", "DEMO - PostgreSQL pool warning", "DEGRADED", 82, 100, 82.0, 185.0, 42),
+            ("demo-db-critical", "DEMO - MySQL pool exhausted", "OFFLINE", 100, 100, 100.0, 2500.0, 180),
+        ]
+        for did, name, state, active, maximum, saturation, latency, slow in db_fixtures:
+            integration = db.query(DatabaseIntegration).filter(DatabaseIntegration.id == did).first()
+            if not integration:
+                integration = DatabaseIntegration(
+                    id=did, organization_id=org.id, name=name,
+                    db_type="PostgreSQL" if "PostgreSQL" in name else "MySQL",
+                    host="demo.invalid", port=5432 if "PostgreSQL" in name else 3306,
+                    database_name="cynera_demo", username_masked="demo_readonly",
+                    status=state, active_connections=active, max_connections=maximum,
+                    pool_saturation_pct=saturation, avg_query_latency_ms=latency,
+                    slow_queries_count=slow, last_checked_at=now
+                )
+                db.add(integration)
+                db.flush()
+
+        # Network monitoring: online, degraded, unreachable and offline devices.
+        network_fixtures = [
+            ("demo-net-online", "DEMO - Core router online", "ONLINE", 12.0, 0.0),
+            ("demo-net-degraded", "DEMO - High-latency edge router", "DEGRADED", 310.0, 3.2),
+            ("demo-net-unreachable", "DEMO - Unreachable gateway", "UNREACHABLE", 5000.0, 100.0),
+            ("demo-net-offline", "DEMO - Offline backup switch", "OFFLINE", 0.0, 100.0),
+        ]
+        for nid, name, state, latency, loss in network_fixtures:
+            if not db.query(NetworkDevice).filter(NetworkDevice.id == nid).first():
+                db.add(NetworkDevice(
+                    id=nid, tenant_id=tenant.id, name=name,
+                    ip_address="demo.invalid", device_type="Router",
+                    monitoring_methods=json.dumps(["synthetic"]),
+                    tcp_ports="[]", monitoring_interval_seconds=60,
+                    is_active=True, status=state, last_latency_ms=latency,
+                    last_packet_loss_pct=loss, open_ports_summary="[]",
+                    last_checked_at=now
+                ))
+
+        db.commit()
         db.commit()
     except Exception:
         db.rollback()
