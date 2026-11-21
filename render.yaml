@@ -17,9 +17,9 @@ services:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: FRONTEND_URL
-        value: https://cynera-frontend.onrender.com
+        sync: false
       - key: CORS_ORIGINS
-        value: https://cynera-frontend.onrender.com
+        sync: false
       - key: SMTP_HOST
         sync: false
       - key: SMTP_USERNAME
@@ -28,13 +28,3 @@ services:
         sync: false
       - key: SMTP_FROM_EMAIL
         sync: false
-
-  - type: web
-    name: cynera-frontend
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://cynera-backend.onrender.com
