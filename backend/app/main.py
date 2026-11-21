@@ -538,6 +538,27 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Basic service discovery endpoints (also used by deployment health checks).
+@app.get("/", tags=["Health"])
+def root_health():
+    return {
+        "service": "CYNERA API",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/api/health"
+    }
+
+
+@app.get("/health", tags=["Health"])
+@app.get("/api/health", tags=["Health"])
+def api_health():
+    return {
+        "service": "CYNERA API",
+        "status": "healthy",
+        "version": app.version
+    }
+
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
