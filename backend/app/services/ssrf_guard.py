@@ -37,7 +37,19 @@ def is_ip_private_or_restricted(ip_str: str) -> bool:
         return True
 
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
-        return not address.ipv4_mapped.is_global
+        return is_ip_private_or_restricted(str(address.ipv4_mapped))
+
+    # Some multicast or special-purpose ranges may report is_global=True in
+    # Python's ipaddress table; explicitly reject all non-unicast classes too.
+    if (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    ):
+        return True
 
     return not address.is_global
 
@@ -196,7 +208,7 @@ def validate_public_url(url: str) -> Tuple[bool, str, str, List[str]]:
     normalized_url = urllib.parse.urlunsplit((
         scheme,
         netloc,
-        parsed.path or "/",
+        parsed.path,
         parsed.query,
         "",
     ))
