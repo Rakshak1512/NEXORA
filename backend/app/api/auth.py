@@ -384,6 +384,7 @@ def demo_login(data: dict, db: Session = Depends(get_db)):
             "id": user.id, "email": user.email, "full_name": user.full_name,
             "role": user.role, "job_title": user.job_title,
             "organization_id": user.organization_id, "tenant_id": user.tenant_id,
+            "is_demo": True,
             "is_demo": True
         },
         "organization": {
