@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     OTP_EXPIRY_MINUTES: int = 5
     OTP_LENGTH: int = 6
     OTP_REQUIRED: bool = True
-    OTP_HASH_SECRET: str = "cynera-otp-hmac-salt-production-secure-key-2026-v1"
+    OTP_HASH_SECRET: str = ""
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = "http://localhost:3000,http://127.0.0.1:3000"
