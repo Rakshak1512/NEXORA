@@ -23,18 +23,3 @@ services:
       - "3000:80"
     depends_on:
       - backend
-
-  collector:
-    build:
-      context: ./collector
-      dockerfile: Dockerfile
-    environment:
-      - COLLECTOR_ID=col-prod-core-01
-      - TENANT_ID=11111111-1111-1111-1111-111111111111
-      - BACKEND_URL=http://backend:8000
-      - COLLECTOR_CREDENTIAL=secret-collector-token-01
-    depends_on:
-      - backend
-    volumes:
-      - ./collector/data:/app/data
-
