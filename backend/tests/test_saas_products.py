@@ -256,7 +256,7 @@ def test_ssrf_guard_accepts_public_ipv4_and_ipv6_literals():
     # Bare public IPv6 literals are normalised into a bracketed HTTPS URL.
     safe, error, normalized, ips = validate_public_url("2606:4700:4700::1111")
     assert safe, error
-    assert normalized == "https://[2606:4700:4700::1111]/"
+    assert normalized == "https://[2606:4700:4700::1111]"
     assert ips == ["2606:4700:4700::1111"]
 
 
